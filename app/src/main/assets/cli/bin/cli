@@ -1,0 +1,143 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Cli host launcher: manages a single Alpine Linux rootfs (proot) and enters it.
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+HOME="${HOME:-/data/data/com.termux/files/home}"
+ROOT="$HOME/.cli/alpine"
+SHARE="$PREFIX/share/cli/alpine"
+MIRROR="${CLI_ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/aarch64}"
+
+say() { printf '\033[1;36m[cli]\033[0m %s\n' "$*"; }
+die() { printf '\033[1;31m[cli]\033[0m %s\n' "$*" >&2; exit 1; }
+
+proot_run() {
+    # usage: proot_run <cmd...>   (runs inside Alpine)
+    [ -d /sdcard ] && SD="-b /sdcard:/sdcard" || SD=""
+    # hybrid mode: heavy user data lives on the SD card, system stays internal
+    if [ -f "$HOME/.cli/sd-data" ]; then
+        SDD=$(cat "$HOME/.cli/sd-data")
+        if [ -d "$SDD" ]; then
+            mkdir -p "$SDD/work" "$SDD/cache" "$SDD/npm"
+            SD="$SD -b $SDD/work:/root/work -b $SDD/cache:/root/.cache -b $SDD/npm:/root/.npm"
+        else
+            echo "[cli] warning: SD card data dir missing ($SDD) - using internal"
+        fi
+    fi
+    mkdir -p "$ROOT/tmp" "$HOME/.cli/tmp"
+    PROOT_TMP_DIR="$HOME/.cli/tmp" proot --kill-on-exit --link2symlink -0 -r "$ROOT" \
+        -b /dev -b /proc -b /sys -b "$ROOT/tmp:/dev/shm" $SD -w /root \
+        /usr/bin/env -i HOME=/root USER=root LOGNAME=root SHELL=/bin/bash \
+        TERM="${TERM:-xterm-256color}" COLORTERM=truecolor LANG=C.UTF-8 CLI_IN_ALPINE=1 \
+        PATH=/root/.local/bin:/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+        "$@"
+}
+
+# --- storage choice: internal or SD card -------------------------------------
+probe_fs() {
+    # Alpine needs symlinks, chmod and executable files on the target filesystem.
+    t="$1/.probe"; rm -rf "$t"
+    mkdir -p "$t" && ln -s x "$t/l" && chmod 755 "$t" \
+      && printf '#!/bin/sh\nexit 0\n' > "$t/x.sh" && chmod 755 "$t/x.sh" && "$t/x.sh"
+    r=$?; rm -rf "$t"; return $r
+}
+
+pick_storage() {
+    mkdir -p "$HOME/.cli"
+    if [ -L "$ROOT" ] && [ ! -d "$ROOT" ]; then die "SD card for Cli is not mounted ($(readlink "$ROOT")). Insert it and retry."; fi
+    [ -e "$ROOT" ] && return 0
+    CAND=$(cat "$HOME/.cli/sd-candidates" 2>/dev/null)
+    echo
+    echo "Where should Cli keep its Linux system (about 1.5 GB)?"
+    echo "  1) Internal storage"
+    i=2
+    for p in $CAND; do echo "  $i) SD card  ($p)"; i=$((i+1)); done
+    [ -z "$CAND" ] && echo "     (no SD card detected - insert one and run 'cli setup' again to use it)"
+    printf 'Choose [1]: '; read c; c=${c:-1}
+    if [ "$c" -ge 2 ] 2>/dev/null; then
+        P=$(echo "$CAND" | sed -n "$((c-1))p")
+        [ -n "$P" ] || die "invalid choice"
+        D="$P/cli-alpine"; mkdir -p "$D" || die "cannot write to $P"
+        if ! probe_fs "$D"; then
+            rmdir "$D" 2>/dev/null
+            echo
+            say "This SD card (FAT/exFAT) cannot hold the Linux system itself: no symlinks / executable files."
+            say "(Samsung phones have no 'format as internal' option, so this is expected.)"
+            say "Hybrid mode: system on internal (~0.8 GB), your work files + caches on the SD card."
+            printf 'Use hybrid mode? [Y/n] '; read a
+            if [ "$a" != n ]; then
+                mkdir -p "$P/cli-data" && echo "$P/cli-data" > "$HOME/.cli/sd-data" && say "SD data dir: $P/cli-data (mounted at /root/work, ~/.cache, ~/.npm)"
+            fi
+        else
+            ln -s "$D" "$ROOT" && say "Using SD card: $D" && return 0
+        fi
+    fi
+    mkdir -p "$ROOT"
+}
+
+cmd_setup() {
+    pick_storage
+    command -v proot >/dev/null 2>&1 || {
+        say "Installing proot (one-time)…"
+        apt-get update -y >/dev/null 2>&1
+        apt-get install -y proot >/dev/null 2>&1 || pkg install -y proot || die "could not install proot (network?)"
+    }
+    command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1 || apt-get install -y curl tar >/dev/null 2>&1
+
+    if [ ! -x "$ROOT/bin/busybox" ]; then
+        say "Downloading Alpine Linux (≈3 MB)…"
+        mkdir -p "$ROOT" "$HOME/.cli/tmp"
+        TMPF="$HOME/.cli/tmp/rootfs.tar.gz"
+        NAME=$(curl -fsSL "$MIRROR/latest-releases.yaml" | grep -o 'alpine-minirootfs-[0-9.]*-aarch64\.tar\.gz' | head -1)
+        [ -n "$NAME" ] || die "could not find Alpine rootfs at $MIRROR"
+        curl -fSL "$MIRROR/$NAME" -o "$TMPF" || die "download failed"
+        WANT=$(curl -fsSL "$MIRROR/$NAME.sha256" | cut -d' ' -f1)
+        GOT=$(sha256sum "$TMPF" | cut -d' ' -f1)
+        [ -n "$WANT" ] && [ "$WANT" = "$GOT" ] || die "checksum mismatch for $NAME"
+        say "Unpacking $NAME…"
+        tar -xzf "$TMPF" -C "$ROOT" --no-same-owner 2>/dev/null
+        rm -f "$TMPF"
+        [ -x "$ROOT/bin/busybox" ] || die "rootfs extraction failed"
+    fi
+
+    printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > "$ROOT/etc/resolv.conf"
+    mkdir -p "$ROOT/opt/cli"
+    cp "$SHARE"/* "$ROOT/opt/cli/"
+    say "Installing tools inside Alpine (first run takes a few minutes)…"
+    proot_run /bin/sh /opt/cli/setup.sh || die "Alpine setup failed. Re-run: cli setup"
+    touch "$ROOT/.ready"
+    say "Done."
+}
+
+cmd_enter() {
+    [ -f "$ROOT/.ready" ] || die "not set up yet: run 'cli setup'"
+    [ $# -eq 0 ] && set -- /bin/bash -l
+    proot_run "$@"
+}
+
+cmd_doctor() {
+    echo "proot:   $(command -v proot || echo MISSING)"
+    echo "storage: $(readlink "$ROOT" 2>/dev/null || echo "internal ($ROOT)")  sd-data: $(cat "$HOME/.cli/sd-data" 2>/dev/null || echo none)"
+    echo "rootfs:  $([ -f "$ROOT/.ready" ] && echo ready || echo not-ready)  ($(du -sh "$ROOT" 2>/dev/null | cut -f1))"
+    echo "arch:    $(uname -m)   android sdk: $(getprop ro.build.version.sdk 2>/dev/null)"
+    [ -f "$ROOT/.ready" ] && proot_run /bin/sh -c 'echo "alpine:  $(cat /etc/alpine-release)"; for t in claude aws kubectl helm git ssh tmux node python3 docker gh; do printf "%-8s %s\n" $t "$(command -v $t || echo MISSING)"; done'
+    echo
+    echo "Android 12+ tip: if sessions get killed in the background, run once over adb:"
+    echo "  adb shell \"settings put global settings_enable_monitor_phantom_procs false\""
+    echo "  (older: adb shell device_config put activity_manager max_phantom_processes 2147483647)"
+}
+
+cmd_reset() {
+    printf 'Delete the whole Alpine environment (all files in /root!)? [y/N] '; read a
+    [ "$a" = y ] || exit 0
+    T=$(readlink "$ROOT" 2>/dev/null); [ -n "$T" ] && { chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"; rm -f "$ROOT"; }
+    chmod -R u+w "$ROOT" 2>/dev/null; rm -rf "$ROOT"; say "removed. Open a new session to set up again."
+}
+
+case "$1" in
+    setup)  cmd_setup ;;
+    enter)  shift; cmd_enter "$@" ;;
+    run)    shift; cmd_enter "$@" ;;
+    doctor) cmd_doctor ;;
+    reset)  cmd_reset ;;
+    host)   touch "$HOME/.cli-no-auto"; say "auto-enter disabled (rm ~/.cli-no-auto to re-enable)" ;;
+    *)      echo "usage: cli {setup|enter [cmd]|doctor|reset|host}"; exit 1 ;;
+esac

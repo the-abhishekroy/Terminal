@@ -1,0 +1,13 @@
+#!/bin/bash
+# Optional tools, installed on demand to keep the base small.  usage: cli-add <tool>
+case "$1" in
+  claude)  export USE_BUILTIN_RIPGREP=0; curl -fsSL https://claude.ai/install.sh | bash || npm i -g @anthropic-ai/claude-code ;;
+  bun)     curl -fsSL https://bun.sh/install | bash ;;
+  vercel)  npm i -g vercel ;;
+  supabase) npm i -g supabase 2>/dev/null || echo "use: npx supabase ..." ;;
+  eksctl)  curl -fsSL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_arm64.tar.gz | tar xz -C /usr/local/bin eksctl ;;
+  k9s)     curl -fsSL https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_arm64.tar.gz | tar xz -C /usr/local/bin k9s ;;
+  redis)   apk add --no-cache redis ;;
+  terraform) apk add --no-cache terraform ;;
+  *)       echo "tools: claude bun vercel supabase eksctl k9s redis terraform   (or: apk add <pkg>)"; exit 1 ;;
+esac

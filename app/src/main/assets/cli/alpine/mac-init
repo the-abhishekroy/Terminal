@@ -1,0 +1,28 @@
+#!/bin/bash
+# Link this phone to your Mac: key-based ssh as `ssh mac`, plus a docker context.
+set -e
+echo "Mac must have: System Settings > General > Sharing > Remote Login = ON"
+echo "Best reachability anywhere: install Tailscale on both and use the Mac's tailnet name/IP."
+read -rp "Mac user: " U
+read -rp "Mac host/IP/tailnet name: " H
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+[ -f ~/.ssh/id_ed25519 ] || ssh-keygen -t ed25519 -N "" -C "cli-phone" -f ~/.ssh/id_ed25519
+touch ~/.ssh/config
+if ! grep -q '^Host mac$' ~/.ssh/config; then
+cat >> ~/.ssh/config <<CFG
+
+Host mac
+  HostName $H
+  User $U
+  IdentityFile ~/.ssh/id_ed25519
+  ServerAliveInterval 30
+  ServerAliveCountMax 4
+CFG
+fi
+chmod 600 ~/.ssh/config
+echo "Copying key (enter your Mac password once)…"
+ssh-copy-id -i ~/.ssh/id_ed25519.pub "$U@$H"
+command -v docker >/dev/null && docker context create mac --docker "host=ssh://mac" >/dev/null 2>&1 && \
+    echo "docker context 'mac' created -> use: docker --context mac ps"
+touch ~/.cli-configured
+echo "Linked. Try:  ssh mac     |  mosh mac  |  next: pull-creds"
