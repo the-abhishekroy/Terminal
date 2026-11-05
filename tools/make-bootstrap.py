@@ -94,6 +94,16 @@ for n in need:
             elif m.isfile():
                 files[rel] = tf.extractfile(m).read()
 
+# --- Cli branding: no Termux welcome text, silent second stage
+files["etc/motd"] = b""
+files["etc/motd.sh"] = b"#!/bin/sh\n"
+fb = "etc/profile.d/01-termux-bootstrap-second-stage-fallback.sh"
+t = files[fb].decode()
+t = t.replace('echo "Starting fallback run of termux bootstrap second stage"', ':')
+t = t.replace('second-stage.sh" || exit $?\n\tfi', 'second-stage.sh" >/dev/null 2>&1 || exit $?\n\tfi')
+assert ">/dev/null 2>&1" in t
+files[fb] = t.encode()
+
 # --- patch + write
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zo:
     for name, data in files.items():
