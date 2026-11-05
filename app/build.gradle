@@ -41,6 +41,7 @@ android {
     }
 
     defaultConfig {
+        applicationId "app.clipod"
         minSdkVersion project.properties.minSdkVersion.toInteger()
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
         versionCode 118
@@ -51,7 +52,7 @@ android {
 
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class
 
-        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
+        manifestPlaceholders.TERMUX_PACKAGE_NAME = "app.clipod"
         manifestPlaceholders.TERMUX_APP_NAME = "Cli"
         manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
         manifestPlaceholders.TERMUX_BOOT_APP_NAME = "Termux:Boot"
@@ -210,12 +211,22 @@ clean {
     }
 }
 
+// Cli: bootstrap = upstream Termux bootstrap + proot, with the app path rewritten to our package name
+def ensureCliBootstrap() {
+    def out = new File(projectDir, "src/main/cpp/bootstrap-aarch64.zip")
+    if (out.exists()) return
+    out.parentFile.mkdirs()
+    def p = new ProcessBuilder("python3", new File(rootDir, "tools/make-bootstrap.py").absolutePath, out.absolutePath,
+            new File(rootDir, "build/bootstrap-cache").absolutePath).inheritIO().start()
+    if (p.waitFor() != 0) throw new GradleException("make-bootstrap.py failed")
+}
+
 task downloadBootstraps() {
     doLast {
         def packageVariant = project.ext.packageVariant
         if (packageVariant == "apt-android-7") {
             def version = "2026.02.12-r1" + "%2B" + "apt.android-7"
-            downloadBootstrap("aarch64", "ea2aeba8819e517db711f8c32369e89e7c52cee73e07930ff91185e1ab93f4f3", version)
+            ensureCliBootstrap()
         } else if (packageVariant == "apt-android-5") {
             def version = "2022.04.28-r6" + "+" + packageVariant
             downloadBootstrap("aarch64", "913609d439415c828c5640be1b0561467e539cb1c7080662decaaca2fb4820e7", version)

@@ -256,7 +256,7 @@ final class TermuxInstaller {
             copyAsset(am, "cli/profile.d/cli-boot.sh", new File(TERMUX_PREFIX_DIR_PATH + "/etc/profile.d/cli-boot.sh"), true, false);
             writeSdCandidates(context);
             File dotTermux = new File(TermuxConstants.TERMUX_DATA_HOME_DIR_PATH);
-            for (String name : new String[]{"termux.properties", "colors.properties"}) {
+            for (String name : new String[]{"font.ttf"}) {
                 copyAsset(am, "cli/termux/" + name, new File(dotTermux, name), false, false);
             }
         } catch (Exception e) {

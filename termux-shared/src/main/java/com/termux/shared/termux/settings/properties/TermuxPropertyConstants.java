@@ -178,7 +178,7 @@ public final class TermuxPropertyConstants {
     public static final int IVALUE_BELL_BEHAVIOUR_VIBRATE = 1;
     public static final int IVALUE_BELL_BEHAVIOUR_BEEP = 2;
     public static final int IVALUE_BELL_BEHAVIOUR_IGNORE = 3;
-    public static final int DEFAULT_IVALUE_BELL_BEHAVIOUR = IVALUE_BELL_BEHAVIOUR_IGNORE;
+    public static final int DEFAULT_IVALUE_BELL_BEHAVIOUR = IVALUE_BELL_BEHAVIOUR_VIBRATE;
 
     /** Defines the bidirectional map for bell behaviour values and their internal values */
     public static final ImmutableBiMap<String, Integer> MAP_BELL_BEHAVIOUR =
@@ -325,7 +325,7 @@ public final class TermuxPropertyConstants {
 
     /** Defines the key for extra keys */
     public static final String KEY_EXTRA_KEYS =  "extra-keys"; // Default: "extra-keys"
-    public static final String DEFAULT_IVALUE_EXTRA_KEYS = "[['ESC',{macro:'ESC [ Z',display:'S-TAB'},'TAB','CTRL','ALT',{key:'-',popup:'_'},{key:'/',popup:'?'},{key:'|',popup:'~'}], [{macro:'CTRL C',display:'^C'},{macro:'CTRL D',display:'^D'},{macro:'CTRL L',display:'^L'},'LEFT',{key:'DOWN',popup:'PGDN'},{key:'UP',popup:'PGUP'},{key:'RIGHT',popup:'END'}]]"; // Cli: Claude Code / tmux friendly
+    public static final String DEFAULT_IVALUE_EXTRA_KEYS = "[['ESC','/',{key: '-', popup: '|'},'HOME','UP','END','PGUP'], ['TAB','CTRL','ALT','LEFT','DOWN','RIGHT','PGDN']]"; // Double row
 
     /** Defines the key for extra keys style */
     public static final String KEY_EXTRA_KEYS_STYLE =  "extra-keys-style"; // Default: "extra-keys-style"

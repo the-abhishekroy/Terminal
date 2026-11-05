@@ -11,9 +11,8 @@ Cli is a fork of [Termux](https://github.com/termux/termux-app) (GPLv3) with a d
 
 - One lightweight Linux (Alpine, about 3 MB base) instead of a heap of packages or multiple distros.
 - Claude Code installed **natively** (musl build), with an npm fallback.
-- Built for a phone keyboard: an extra-keys row with `ESC`, `S-TAB`, `TAB`, `CTRL`, `ALT`, `- / |`, `^C`, `^D`, `^L` and arrows.
 - Opens straight into a persistent `tmux` session, so a dropped connection or a locked screen doesn't lose your work.
-- Dark Tokyo Night theme, black UI, silent bell, Back key = `Esc`.
+- Termux's default look and extra-keys row, with a Menlo-style monospace font (DejaVu Sans Mono).
 
 ## What you get inside
 
@@ -54,13 +53,12 @@ kubectl config get-contexts
 
 ## Storage and the SD card
 
-At first run Cli asks where to keep its data.
+At first run Cli looks for an SD card and uses it automatically.
 
-- **Internal**: everything lives in the app's private storage.
-- **SD card, adoptable (ext4/f2fs)**: the whole Linux system can live on the card.
-- **SD card, FAT/exFAT (normal, and the only option on Samsung)**: Linux cannot live there (no symlinks, no executable files). Cli offers **hybrid mode**: the system (about 0.8 GB) stays internal, while `/root/work`, `~/.cache` and `~/.npm` live on the SD card. Don't run `npm install` or anything that needs symlinks inside `/root/work`; keep such projects under `/root` instead, or work over ssh on the Mac.
+- **SD card that Android lets programs run from (adoptable ext4/f2fs):** the whole Linux system is installed on the card.
+- **Normal FAT/exFAT SD card (all Samsung phones):** Android mounts it with no symlinks and no executables, so Linux itself can't run from it. The system (about 1.2 GB) stays internal, and **everything you create goes to the SD card**: `/root/work`, `~/.cache`, `~/.npm`, pip and apk caches.
 
-The Termux base (about 150 MB) and the APK itself always stay on internal storage; Android doesn't allow moving them.
+Keep `npm install`-style projects (they need symlinks) outside `/root/work`, or work on the Mac over ssh. The Termux base (about 80 MB) and the APK always stay internal.
 
 ## Commands on the host side
 
@@ -96,16 +94,16 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 # app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk
 ```
 
-The build downloads the `aarch64` Termux bootstrap. If Gradle's download times out, fetch it with curl into `app/src/main/cpp/bootstrap-aarch64.zip` (checksum is verified).
+The build runs `tools/make-bootstrap.py` (needs `python3` and `curl`) to create `app/src/main/cpp/bootstrap-aarch64.zip`. After changing it, delete `app/build` and `app/.cxx` so the native library is rebuilt.
 
 Where the changes live:
 
 - `app/src/main/assets/cli/`: launcher (`bin/cli`), login hook (`profile.d/cli-boot.sh`), the Alpine setup and helper scripts (`alpine/`), and the Termux theme/properties.
 - `app/src/main/java/com/termux/app/TermuxInstaller.java`: copies those assets into place and lists SD card paths.
-- `app/build.gradle`: arm64-only build, only the aarch64 bootstrap.
-- `TermuxPropertyConstants.java`: the default extra-keys row; `TermuxConstants.java` + `strings.xml`: the app name.
+- `app/build.gradle`: arm64-only build, package id `app.clipod`, builds the patched bootstrap.
+- `TermuxConstants.java` + `strings.xml`: app name and package id.
 
-The package id stays `com.termux` on purpose: the prebuilt Termux packages are compiled for that path.
+The package id is `app.clipod`. `tools/make-bootstrap.py` builds the bootstrap at build time: the upstream Termux bootstrap plus proot, with the hardcoded app path rewritten to `/data/data/app.clipod` (same length, so binaries stay valid). Don't use `pkg`/`apt` on the host; everything you need lives in Alpine (`apk add`).
 
 ## License
 

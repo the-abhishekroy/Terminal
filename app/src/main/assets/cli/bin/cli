@@ -1,7 +1,7 @@
-#!/data/data/com.termux/files/usr/bin/sh
+#!/data/data/app.clipod/files/usr/bin/sh
 # Cli host launcher: manages a single Alpine Linux rootfs (proot) and enters it.
-PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
-HOME="${HOME:-/data/data/com.termux/files/home}"
+PREFIX="${PREFIX:-/data/data/app.clipod/files/usr}"
+HOME="${HOME:-/data/data/app.clipod/files/home}"
 ROOT="$HOME/.cli/alpine"
 SHARE="$PREFIX/share/cli/alpine"
 MIRROR="${CLI_ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/aarch64}"
@@ -11,13 +11,15 @@ die() { printf '\033[1;31m[cli]\033[0m %s\n' "$*" >&2; exit 1; }
 
 proot_run() {
     # usage: proot_run <cmd...>   (runs inside Alpine)
+    unset LD_PRELOAD   # termux-exec preload breaks proot's execve
     [ -d /sdcard ] && SD="-b /sdcard:/sdcard" || SD=""
     # hybrid mode: heavy user data lives on the SD card, system stays internal
     if [ -f "$HOME/.cli/sd-data" ]; then
         SDD=$(cat "$HOME/.cli/sd-data")
         if [ -d "$SDD" ]; then
             mkdir -p "$SDD/work" "$SDD/cache" "$SDD/npm"
-            SD="$SD -b $SDD/work:/root/work -b $SDD/cache:/root/.cache -b $SDD/npm:/root/.npm"
+            mkdir -p "$SDD/apk" "$SDD/pip"
+            SD="$SD -b $SDD/work:/root/work -b $SDD/cache:/root/.cache -b $SDD/npm:/root/.npm -b $SDD/apk:/var/cache/apk -b $SDD/pip:/root/.cache/pip"
         else
             echo "[cli] warning: SD card data dir missing ($SDD) - using internal"
         fi
@@ -45,31 +47,23 @@ pick_storage() {
     if [ -L "$ROOT" ] && [ ! -d "$ROOT" ]; then die "SD card for Cli is not mounted ($(readlink "$ROOT")). Insert it and retry."; fi
     [ -e "$ROOT" ] && return 0
     CAND=$(cat "$HOME/.cli/sd-candidates" 2>/dev/null)
-    echo
-    echo "Where should Cli keep its Linux system (about 1.5 GB)?"
-    echo "  1) Internal storage"
-    i=2
-    for p in $CAND; do echo "  $i) SD card  ($p)"; i=$((i+1)); done
-    [ -z "$CAND" ] && echo "     (no SD card detected - insert one and run 'cli setup' again to use it)"
-    printf 'Choose [1]: '; read c; c=${c:-1}
-    if [ "$c" -ge 2 ] 2>/dev/null; then
-        P=$(echo "$CAND" | sed -n "$((c-1))p")
-        [ -n "$P" ] || die "invalid choice"
-        D="$P/cli-alpine"; mkdir -p "$D" || die "cannot write to $P"
-        if ! probe_fs "$D"; then
-            rmdir "$D" 2>/dev/null
-            echo
-            say "This SD card (FAT/exFAT) cannot hold the Linux system itself: no symlinks / executable files."
-            say "(Samsung phones have no 'format as internal' option, so this is expected.)"
-            say "Hybrid mode: system on internal (~0.8 GB), your work files + caches on the SD card."
-            printf 'Use hybrid mode? [Y/n] '; read a
-            if [ "$a" != n ]; then
-                mkdir -p "$P/cli-data" && echo "$P/cli-data" > "$HOME/.cli/sd-data" && say "SD data dir: $P/cli-data (mounted at /root/work, ~/.cache, ~/.npm)"
-            fi
-        else
-            ln -s "$D" "$ROOT" && say "Using SD card: $D" && return 0
-        fi
+    P=$(echo "$CAND" | sed -n 1p)
+    if [ -z "$P" ]; then
+        say "No SD card detected: everything stays on internal storage."
+        mkdir -p "$ROOT"; return 0
     fi
+    D="$P/cli-alpine"; mkdir -p "$D" 2>/dev/null
+    if probe_fs "$D"; then
+        # adoptable / ext4 SD card: the whole Linux system can live on it
+        rmdir "$D" 2>/dev/null; mkdir -p "$D"
+        ln -s "$D" "$ROOT" && say "SD card detected: installing the whole system on it ($D)" && return 0
+    fi
+    rmdir "$D" 2>/dev/null
+    # normal FAT/exFAT SD card (all Samsung phones): Android forbids running programs / symlinks there
+    mkdir -p "$P/cli-data" && echo "$P/cli-data" > "$HOME/.cli/sd-data"
+    say "SD card detected: $P"
+    say "Android mounts it as FAT (no symlinks, no executables), so the Linux system (~1.2 GB) must sit on internal storage."
+    say "Everything you create goes on the SD card: /root/work, caches (~/.cache, ~/.npm), apk/pip downloads."
     mkdir -p "$ROOT"
 }
 
@@ -84,18 +78,19 @@ cmd_setup() {
 
     if [ ! -x "$ROOT/bin/busybox" ]; then
         say "Downloading Alpine Linux (≈3 MB)…"
+        [ -d "$ROOT" ] && [ ! -L "$ROOT" ] && { chmod -R u+w "$ROOT" 2>/dev/null; rm -rf "$ROOT"; }
         mkdir -p "$ROOT" "$HOME/.cli/tmp"
         TMPF="$HOME/.cli/tmp/rootfs.tar.gz"
         NAME=$(curl -fsSL "$MIRROR/latest-releases.yaml" | grep -o 'alpine-minirootfs-[0-9.]*-aarch64\.tar\.gz' | head -1)
         [ -n "$NAME" ] || die "could not find Alpine rootfs at $MIRROR"
-        curl -fSL "$MIRROR/$NAME" -o "$TMPF" || die "download failed"
+        curl -fL# "$MIRROR/$NAME" -o "$TMPF" || die "download failed"
         WANT=$(curl -fsSL "$MIRROR/$NAME.sha256" | cut -d' ' -f1)
         GOT=$(sha256sum "$TMPF" | cut -d' ' -f1)
         [ -n "$WANT" ] && [ "$WANT" = "$GOT" ] || die "checksum mismatch for $NAME"
         say "Unpacking $NAME…"
-        tar -xzf "$TMPF" -C "$ROOT" --no-same-owner 2>/dev/null
+        tar -xzf "$TMPF" -C "$ROOT" --no-same-owner 2>"$HOME/.cli/tar.err"
         rm -f "$TMPF"
-        [ -x "$ROOT/bin/busybox" ] || die "rootfs extraction failed"
+        [ -x "$ROOT/bin/busybox" ] && [ -L "$ROOT/usr/bin/env" ] || { cat "$HOME/.cli/tar.err" | head -5; die "rootfs extraction failed"; }
     fi
 
     printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > "$ROOT/etc/resolv.conf"

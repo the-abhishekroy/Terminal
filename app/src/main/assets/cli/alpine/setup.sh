@@ -11,8 +11,19 @@ CORE="bash bash-completion coreutils curl wget ca-certificates openssh-client mo
 # ---- your stack: AWS, Kubernetes, Docker (client only), GitHub, Postgres ---
 OPS="aws-cli kubectl helm docker-cli docker-cli-compose github-cli postgresql-client"
 
-for p in $CORE; do apk add --no-cache "$p" >/dev/null 2>&1 || say "skip (unavailable): $p"; done
-for p in $OPS;  do apk add --no-cache "$p" >/dev/null 2>&1 || say "skip (unavailable): $p"; done
+bar() { # bar <done> <total> <label>
+    w=24; f=$(( $1 * w / $2 )); pct=$(( $1 * 100 / $2 ))
+    b=$(printf '%*s' "$f" '' | tr ' ' '#')$(printf '%*s' "$((w-f))" '' | tr ' ' '-')
+    printf '\r\033[K[%s] %3d%% (%s/%s) %s' "$b" "$pct" "$1" "$2" "$3"
+}
+N=0; T=$(echo $CORE $OPS | wc -w); SKIPPED=""
+for p in $CORE $OPS; do
+    bar "$N" "$T" "$p"
+    apk add --no-cache -q "$p" >/dev/null 2>&1 || SKIPPED="$SKIPPED $p"
+    N=$((N+1))
+done
+bar "$T" "$T" "done"; echo
+[ -n "$SKIPPED" ] && say "not available on this Alpine, skipped:$SKIPPED"
 say "base packages installed"
 
 # ---- config -----------------------------------------------------------------
