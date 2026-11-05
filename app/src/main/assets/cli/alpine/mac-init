@@ -13,7 +13,8 @@ printf '\n Press Enter when ready (or type %sskip%s to do this later): ' "$B" "$
 
 ask "1/3  Your Mac username" "On the Mac, open Terminal and type:  whoami        (example: john)" ""
 U=$REPLY; [ -n "$U" ] || { echo " Username is needed."; exit 1; }
-ask "2/3  Your Mac's address" "Same Wi-Fi: on the Mac type  ipconfig getifaddr en0   (example: 192.168.1.23)
+ask "2/3  Your Mac's address" "Same Wi-Fi: on the Mac type  ifconfig | grep 'inet ' | grep -v 127.0.0.1   (use the 192.168.x.x number)
+ (If the phone cannot reach it, your router may isolate devices - then use Tailscale below.)
  Anywhere with Tailscale: use the Mac's Tailscale name or 100.x address (example: johns-mac.tail1234.ts.net)" ""
 H=$REPLY; [ -n "$H" ] || { echo " Address is needed."; exit 1; }
 ask "3/3  A short nickname for it" "You will type:  ssh <nickname>" "mac"
