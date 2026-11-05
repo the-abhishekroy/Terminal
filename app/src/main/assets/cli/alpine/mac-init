@@ -1,28 +1,45 @@
 #!/bin/bash
-# Link this phone to your Mac: key-based ssh as `ssh mac`, plus a docker context.
-set -e
-echo "Mac must have: System Settings > General > Sharing > Remote Login = ON"
-echo "Best reachability anywhere: install Tailscale on both and use the Mac's tailnet name/IP."
-read -rp "Mac user: " U
-read -rp "Mac host/IP/tailnet name: " H
-mkdir -p ~/.ssh && chmod 700 ~/.ssh
-[ -f ~/.ssh/id_ed25519 ] || ssh-keygen -t ed25519 -N "" -C "cli-phone" -f ~/.ssh/id_ed25519
-touch ~/.ssh/config
-if ! grep -q '^Host mac$' ~/.ssh/config; then
+# Guided: connect this phone to your computer (Mac/Linux/PC) over ssh. Safe to re-run.
+B=$'\e[1m'; C=$'\e[1;36m'; G=$'\e[1;32m'; R=$'\e[1;31m'; D=$'\e[2m'; N=$'\e[0m'
+ask() { # ask "question" "hint/example" "default" -> $REPLY
+    printf '\n %s%s%s\n' "$B" "$1" "$N"; [ -n "$2" ] && printf ' %s%s%s\n' "$D" "$2" "$N"
+    if [ -n "$3" ]; then printf ' %s>%s [%s] ' "$C" "$N" "$3"; else printf ' %s>%s ' "$C" "$N"; fi
+    read -r REPLY; REPLY=${REPLY:-$3}
+}
+clear
+printf '\n %sConnect your computer%s\n %sThis lets Cli open a secure (ssh) link to your Mac, so you can run things there from your phone.%s\n' "$C" "$N" "$D" "$N"
+printf '\n %sBefore we start, on your Mac:%s\n   1. System Settings > General > Sharing > turn ON "Remote Login"\n   2. Phone and Mac on the same Wi-Fi (or both on Tailscale for anywhere access)\n' "$B" "$N"
+printf '\n Press Enter when ready (or type %sskip%s to do this later): ' "$B" "$N"; read -r a; [ "$a" = skip ] && exit 0
+
+ask "1/3  Your Mac username" "On the Mac, open Terminal and type:  whoami        (example: john)" ""
+U=$REPLY; [ -n "$U" ] || { echo " Username is needed."; exit 1; }
+ask "2/3  Your Mac's address" "Same Wi-Fi: on the Mac type  ipconfig getifaddr en0   (example: 192.168.1.23)
+ Anywhere with Tailscale: use the Mac's Tailscale name or 100.x address (example: johns-mac.tail1234.ts.net)" ""
+H=$REPLY; [ -n "$H" ] || { echo " Address is needed."; exit 1; }
+ask "3/3  A short nickname for it" "You will type:  ssh <nickname>" "mac"
+A=$REPLY
+
+mkdir -p ~/.ssh && chmod 700 ~/.ssh; touch ~/.ssh/config
+[ -f ~/.ssh/id_ed25519 ] || { printf '\n Creating this phone'"'"'s ssh key...\n'; ssh-keygen -q -t ed25519 -N "" -C "cli-phone" -f ~/.ssh/id_ed25519; }
+sed -i "/^Host $A\$/,/^$/d" ~/.ssh/config 2>/dev/null
 cat >> ~/.ssh/config <<CFG
 
-Host mac
+Host $A
   HostName $H
   User $U
   IdentityFile ~/.ssh/id_ed25519
   ServerAliveInterval 30
   ServerAliveCountMax 4
+
 CFG
-fi
 chmod 600 ~/.ssh/config
-echo "Copying key (enter your Mac password once)…"
-ssh-copy-id -i ~/.ssh/id_ed25519.pub "$U@$H"
-command -v docker >/dev/null && docker context create mac --docker "host=ssh://mac" >/dev/null 2>&1 && \
-    echo "docker context 'mac' created -> use: docker --context mac ps"
-touch ~/.cli-configured
-echo "Linked. Try:  ssh mac     |  mosh mac  |  next: pull-creds"
+printf '\n %sAlmost there.%s Your Mac will ask for its login password ONE time to trust this phone.\n\n' "$B" "$N"
+if ssh-copy-id -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_ed25519.pub "$A"; then
+    command -v docker >/dev/null && docker context create "$A" --docker "host=ssh://$A" >/dev/null 2>&1
+    touch ~/.cli-configured
+    printf '\n %s✔ Connected!%s\n   Try:  %sssh %s%s   (or  %smosh %s%s  for a connection that survives Wi-Fi changes)\n' "$G" "$N" "$B" "$A" "$N" "$B" "$A" "$N"
+    printf '   Next: %spull-creds %s%s  copies your AWS / kube / ssh settings from the Mac.\n\n' "$B" "$A" "$N"
+else
+    printf '\n %s✘ Could not connect.%s Check:\n   • Remote Login is ON on the Mac\n   • the address "%s" is right and reachable from this phone\n   • the username "%s" matches the Mac\n   Then run  mac-init  again.\n\n' "$R" "$N" "$H" "$U"
+    exit 1
+fi

@@ -27,4 +27,6 @@ for f in mac-init pull-creds cli-add; do install -m 755 /opt/cli/$f /usr/local/b
 [ -f /root/.bash_profile ] || printf '[ -f /root/.bashrc ] && . /root/.bashrc\n' > /root/.bash_profile
 mkdir -p /root/.ssh /root/.kube /root/.aws /root/.local/bin /root/work
 chmod 700 /root/.ssh /root/.aws
+# ngrok (static arm64 binary)
+[ -x /usr/local/bin/ngrok ] || curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz 2>>/root/setup.log | tar xz -C /usr/local/bin ngrok 2>>/root/setup.log
 touch /root/.cli-setup-ok

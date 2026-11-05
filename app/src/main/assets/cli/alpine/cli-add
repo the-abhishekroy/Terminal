@@ -7,7 +7,8 @@ case "$1" in
   supabase) npm i -g supabase 2>/dev/null || echo "use: npx supabase ..." ;;
   eksctl)  curl -fsSL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_arm64.tar.gz | tar xz -C /usr/local/bin eksctl ;;
   k9s)     curl -fsSL https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_arm64.tar.gz | tar xz -C /usr/local/bin k9s ;;
+  ngrok)   curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz | tar xz -C /usr/local/bin ngrok ;;
   redis)   apk add --no-cache redis ;;
   terraform) apk add --no-cache terraform ;;
-  *)       echo "tools: claude bun vercel supabase eksctl k9s redis terraform   (or: apk add <pkg>)"; exit 1 ;;
+  *)       echo "tools: claude ngrok bun vercel supabase eksctl k9s redis terraform   (or: apk add <pkg>)"; exit 1 ;;
 esac
