@@ -1,5 +1,5 @@
 # Cli Alpine profile (sourced for login/interactive shells)
-export LANG=C.UTF-8 EDITOR=nvim PAGER=less
+export TZ=Asia/Kolkata LANG=C.UTF-8 EDITOR=nvim PAGER=less
 export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"
 export USE_BUILTIN_RIPGREP=0          # Claude Code: use Alpine's ripgrep (musl)
 export DISABLE_TELEMETRY=1
