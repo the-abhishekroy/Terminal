@@ -224,8 +224,6 @@ cmd_setup() {
     printf '\n%s ✔ All done!%s Everything is installed.\n\n' "$GR" "$C0"
     printf '   %sWhat to do next%s\n' "$BD" "$C0"
     printf '     %s1.%s Type  %sclaude%s  and sign in with your account\n' "$CY" "$C0" "$BD" "$C0"
-    printf '     %s2.%s Type  %smac-init%s  to connect your Mac (ssh)\n' "$CY" "$C0" "$BD" "$C0"
-    printf '     %s3.%s Type  %spull-creds%s  to copy your AWS / kube / ssh settings from the Mac\n' "$CY" "$C0" "$BD" "$C0"
     printf '\n   %sTip:%s  cli doctor  checks that everything works.\n' "$DM" "$C0"
     printf '\n   Press %sEnter%s to open your terminal... ' "$BD" "$C0"; read a
 }
@@ -268,5 +266,5 @@ case "$1" in
             echo "    cli enter    open the Linux terminal"
             echo "    cli reset    erase the Linux system and start over"
             echo "    cli host     skip auto-start (advanced)"
-            echo; echo "  Inside Linux:  claude   mac-init   pull-creds   cli-add <tool>"; echo ;;
+            echo; echo "  Inside Linux:  claude   cli-add <tool>"; echo ;;
 esac

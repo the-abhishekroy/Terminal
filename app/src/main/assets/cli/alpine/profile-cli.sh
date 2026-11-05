@@ -21,9 +21,3 @@ alias kgp='kubectl get pods' kgs='kubectl get svc' kctx='kubectl config use-cont
 if [ -z "$TMUX" ] && [ -z "$CLI_NO_TMUX" ] && [ -t 0 ] && command -v tmux >/dev/null; then
     exec tmux new-session -A -s main
 fi
-
-if [ -n "$PS1" ] && [ -z "$CLI_MOTD_SHOWN" ] && [ -n "$TMUX" ]; then
-    export CLI_MOTD_SHOWN=1
-    printf '\033[1;36mCli\033[0m · Alpine %s · claude  aws  kubectl  helm  gh  docker(client)  ssh/mosh\n' "$(cat /etc/alpine-release)"
-    [ -f /root/.cli-configured ] || printf '  first time? run: \033[1mmac-init\033[0m (link your Mac)  then  \033[1mpull-creds\033[0m (AWS/kube/ssh)\n'
-fi

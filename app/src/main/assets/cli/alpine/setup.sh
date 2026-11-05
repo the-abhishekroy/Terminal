@@ -22,7 +22,7 @@ echo "@@BAR $T $T done"
 sed -i 's#^root:\(.*\):/bin/ash#root:\1:/bin/bash#' /etc/passwd
 cp /opt/cli/profile-cli.sh /etc/profile.d/cli.sh
 cp /opt/cli/tmux.conf /etc/tmux.conf
-for f in mac-init pull-creds cli-add; do install -m 755 /opt/cli/$f /usr/local/bin/$f; done
+for f in cli-add; do install -m 755 /opt/cli/$f /usr/local/bin/$f; done
 [ -f /root/.bashrc ] || printf '[ -f /etc/profile.d/cli.sh ] && . /etc/profile.d/cli.sh\n' > /root/.bashrc
 [ -f /root/.bash_profile ] || printf '[ -f /root/.bashrc ] && . /root/.bashrc\n' > /root/.bash_profile
 mkdir -p /root/.ssh /root/.kube /root/.aws /root/.local/bin /root/work

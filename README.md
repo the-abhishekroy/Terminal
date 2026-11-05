@@ -3,7 +3,7 @@
 <p align="center"><img src="art/cli-icon.png" width="120" alt="Cli icon"></p>
 
 **A pocket Linux terminal for Android, tuned for cloud / DevOps work.**
-Open the app and you are inside a tiny Alpine Linux with Claude Code, AWS CLI, kubectl, helm, git, ssh/mosh and tmux already installed, ready to link to your Mac.
+Open the app and you are inside a tiny Alpine Linux with Claude Code, AWS CLI, kubectl, helm, git, ssh/mosh and tmux already installed, ready for your own configuration.
 
 Cli is a fork of [Termux](https://github.com/termux/termux-app) (GPLv3) with a different first-run experience. Nothing is rooted, nothing is emulated beyond `proot`.
 
@@ -20,7 +20,7 @@ Cli is a fork of [Termux](https://github.com/termux/termux-app) (GPLv3) with a d
 |---|---|
 | AI | `claude` (Claude Code, native) |
 | Cloud | `aws` (aws-cli v2), `kubectl`, `helm`, `gh`, `docker` + `docker compose` (client only) |
-| Access | `ssh`, `mosh`, `rsync`, `mac-init`, `pull-creds` |
+| Access | `ssh`, `mosh`, `rsync` |
 | Dev | `git`, `node` + `npm`, `python3` + `pip`, `psql`, `nvim`, `ripgrep`, `fd`, `fzf`, `jq`, `yq`, `htop` |
 | On demand (`cli-add <tool>`) | `bun`, `vercel`, `supabase`, `eksctl`, `k9s`, `redis`, `terraform` |
 
@@ -38,18 +38,10 @@ Requirements: Android 7+ on a 64-bit ARM phone (`arm64-v8a`). Tested target: Sam
 
 ```sh
 claude              # sign in with the link it prints
-mac-init            # link your Mac: ssh key + `ssh mac` + docker context
-pull-creds          # (optional) copy ~/.aws, ~/.kube and ssh config from the Mac
 aws sts get-caller-identity
 kubectl config get-contexts
 ```
 
-### Connecting to your Mac
-
-1. On the Mac: System Settings → General → Sharing → **Remote Login** on.
-2. Install **Tailscale** on the Mac and the phone so the Mac is reachable from anywhere (no port forwarding).
-3. In Cli run `mac-init`, then use `ssh mac` or `mosh mac`.
-4. Run heavy things (Docker, builds, the real project checkouts) on the Mac and use the phone as the terminal: `docker --context mac ps`.
 
 ## Storage and the SD card
 
