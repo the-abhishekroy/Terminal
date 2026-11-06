@@ -134,12 +134,27 @@ cmd_setup() {
     step 5 "Finishing up"
     migrate_old && [ -f "$STATE/user.sh" ] && ok "Moved your settings from the old version"
     link_work_folder
+    cmd_auto on >/dev/null 2>&1 && ok "Claude Code works without asking permission (turn off: terminal auto off)"
     touch "$READY"
     printf '\n%s ✔ All done!%s Everything is installed.\n\n' "$GR" "$C0"
     printf '   %sWhat to do next%s\n' "$BD" "$C0"
     printf '     %s1.%s Type  %sclaude%s  and sign in with your account\n' "$CY" "$C0" "$BD" "$C0"
     printf '     %s2.%s Add more tools any time:  %sterminal-add <name>%s\n' "$CY" "$C0" "$BD" "$C0"
     printf '\n   Press %sEnter%s to start... ' "$BD" "$C0"; read a
+}
+
+# Claude Code asks before every command by default. "auto on" lets it work without asking (what most people want on a phone).
+cmd_auto() {
+    S="$HOME/.claude/settings.json"; C="$HOME/.claude.json"; mkdir -p "$HOME/.claude"
+    [ -s "$S" ] || echo '{}' > "$S"; [ -s "$C" ] || echo '{}' > "$C"
+    case "$1" in
+        on)  jq '.permissions.defaultMode="bypassPermissions" | .skipDangerousModePermissionPrompt=true' "$S" > "$S.tmp" && mv "$S.tmp" "$S" \
+             && jq '.bypassPermissionsModeAccepted=true' "$C" > "$C.tmp" && mv "$C.tmp" "$C" \
+             && say "Auto mode ON: Claude Code works without asking for permission." ;;
+        off) jq 'del(.permissions.defaultMode) | del(.skipDangerousModePermissionPrompt)' "$S" > "$S.tmp" && mv "$S.tmp" "$S" \
+             && say "Auto mode OFF: Claude Code will ask before running commands or editing files." ;;
+        *)   [ "$(jq -r '.permissions.defaultMode // empty' "$S" 2>/dev/null)" = bypassPermissions ] && echo "auto mode: ON  (turn off: terminal auto off)" || echo "auto mode: OFF (turn on: terminal auto on)" ;;
+    esac
 }
 
 cmd_doctor() {
@@ -163,11 +178,13 @@ case "$1" in
     setup)  cmd_setup ;;
     doctor) cmd_doctor ;;
     reset)  cmd_reset ;;
+    auto)   shift; cmd_auto "$1" ;;
     __migrate) migrate_old ;;   # internal (used by tests)
     *)      printf '\n  %sTerminal%s commands\n\n' "$BD" "$C0"
             echo "    terminal setup       install / repair everything"
             echo "    terminal doctor      check that everything works"
             echo "    terminal reset       run the first-time setup again"
+            echo "    terminal auto on|off Claude Code works without asking permission (default: on)"
             echo "    terminal-add <tool>  install more tools (kubectl, neovim, terraform...)"
             echo; echo "  Claude Code:  claude"; echo ;;
 esac

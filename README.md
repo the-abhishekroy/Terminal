@@ -54,6 +54,10 @@ terminal reset      # run the first-time setup again (your files stay)
 terminal-add <tool> # install more tools
 ```
 
+## Auto mode (no permission prompts)
+
+By default Terminal sets Claude Code to **bypass permissions**: it runs commands and edits files without asking each time. This suits a phone, where tapping "yes" all day is slow. Be aware that Claude can then run anything your credentials allow, for example `kubectl` or `aws` against production. Turn it off any time with `terminal auto off`, and check with `terminal auto status`.
+
 ## About Claude Code's version
 
 Claude Code stopped shipping as plain JavaScript after version **2.1.112**. Newer releases are a 337 MB native binary that needs Linux compatibility layers, and those froze on Android. Terminal installs 2.1.112 (about 50 MB, runs on Node, no freezes). You can try a different version with `TERMINAL_CLAUDE_VERSION=<version> terminal setup`, but newer ones will not run natively on Android.
