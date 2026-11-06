@@ -20,10 +20,10 @@ Terminal is a fork of [Termux](https://github.com/termux/termux-app) (GPLv3) wit
 | Area | Tools |
 |---|---|
 | AI | `claude` (Claude Code 2.1.112, on Node) |
-| Cloud | `aws` (AWS CLI v1), `kubectl`, `helm`, `gh`, `docker-compose` (via `terminal-add`) |
+| Cloud | `aws` (AWS CLI v1), `kubectl`, `helm`, `gh`, `ngrok`, `vercel` |
 | Access | `ssh`, `mosh`, `rsync`, `curl`, `wget` |
 | Dev | `git`, `node` + `npm`, `python` + `pip`, `psql` client, `jq`, `yq`, `ripgrep`, `fd`, `fzf`, `nano`, `tmux`, `htop` |
-| More | `terminal-add <tool>`: thousands of packages from the Termux repository (neovim, terraform, k9s, ...) |
+| More | `terminal-add <tool>`: `bun`, `neovim`, `k9s`, `postgresql`, `redis`, `docker-cli`, `docker-compose`, `sqlite` and thousands more from the Termux repository |
 
 Handy aliases: `c` (claude), `cc` (claude --continue), `k` (kubectl), `g` (git), `gs`, `gl`, `kgp`.
 
@@ -64,7 +64,8 @@ Claude Code stopped shipping as plain JavaScript after version **2.1.112**. Newe
 
 ## Limits
 
-- `ngrok`, `docker` (daemon) and `eksctl` are not in the Termux repository. For Docker, use the `docker-compose` / `docker-cli` client against a remote host.
+- There is no Docker daemon on a phone: use the Docker client against a remote host. `eksctl` and `terraform` are not available natively.
+- `ngrok` runs through a small wrapper (`termux-chroot`) because Android has no `/etc/resolv.conf`. Add your token with `ngrok config add-authtoken <token>`.
 - AWS CLI is v1 (installed with pip). It supports everything a day-to-day workflow needs, including `aws eks get-token`.
 - A normal (FAT/exFAT) SD card cannot hold programs, only your files. That is an Android rule.
 - The APK is signed with the public Termux test key. That is fine for personal use, not for a store.

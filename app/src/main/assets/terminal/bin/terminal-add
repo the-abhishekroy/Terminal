@@ -14,7 +14,36 @@ PROGRESS=0; [ "$1" = "--progress" ] && { PROGRESS=1; shift; }
 say() { [ $PROGRESS -eq 1 ] || printf '%s\n' "$*"; }
 
 [ "$1" = "--list" ] && { grep -h '^Package:' "$ST/added" 2>/dev/null | cut -d' ' -f2; exit 0; }
-[ $# -gt 0 ] || { echo "usage: terminal-add <tool> [tool...]   (examples: kubectl helm gh awscli jq tmux neovim)"; exit 1; }
+[ $# -gt 0 ] || { echo "usage: terminal-add <tool> [tool...]   (examples: ngrok vercel bun neovim k9s)"; exit 1; }
+
+# --- tools that are not in the package repository
+add_ngrok() {
+    say "Installing ngrok..."
+    mkdir -p "$PREFIX/libexec/ngrok"
+    curl -fsSL --retry 3 https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz 2>>"$LOGF" | tar xz -C "$PREFIX/libexec/ngrok" ngrok 2>>"$LOGF" || return 1
+    chmod 700 "$PREFIX/libexec/ngrok/ngrok"
+    # Android has no /etc/resolv.conf, which ngrok needs; termux-chroot provides one. The empty LD_PRELOAD lets this static binary start.
+    cat > "$PREFIX/bin/ngrok" <<WRAP
+#!$PREFIX/bin/sh
+exec env LD_PRELOAD= SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem" "$PREFIX/bin/termux-chroot" /system/bin/env "$PREFIX/libexec/ngrok/ngrok" "\$@"
+WRAP
+    chmod 700 "$PREFIX/bin/ngrok"
+    "$PREFIX/bin/ngrok" version >/dev/null 2>&1
+}
+add_npm() { # add_npm <package>
+    say "Installing $1 (npm)..."
+    npm install -g --no-audit --no-fund --loglevel=error "$1" >>"$LOGF" 2>&1
+}
+PKGS=""
+for a in "$@"; do
+    case "$a" in
+        ngrok)  add_ngrok  || { echo "terminal-add: ngrok failed (see $LOGF)" >&2; exit 8; } ;;
+        vercel) add_npm vercel || { echo "terminal-add: vercel failed (see $LOGF)" >&2; exit 8; } ;;
+        *)      PKGS="$PKGS $a" ;;
+    esac
+done
+set -- $PKGS
+[ $# -gt 0 ] || exit 0
 
 refresh_index() {
     if [ -s "$IDX" ] && [ -z "$(find "$IDX" -mmin +1440 2>/dev/null)" ]; then return 0; fi

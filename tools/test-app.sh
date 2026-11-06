@@ -44,7 +44,7 @@ chk "bootstrap fully re-pathed (nothing points to /data/data/com.termux)" "! $AD
 chk "first-time setup finished" "$ADB shell run-as $PKG test -f $P/home/.terminal/.ready" "open the app once, finish the setup, then re-run"
 if "$ADB" shell run-as $PKG test -f $P/home/.terminal/.ready 2>/dev/null; then
   OUT=$("$ADB" shell "run-as $PKG env -i $ENVV $P/usr/bin/bash -lic 'echo ENV:\$TZ:\$USE_BUILTIN_RIPGREP:\${TMUX:-none}' </dev/null" 2>/dev/null | tr -d '\r'); echo "$OUT" | grep -q 'ENV:Asia/Kolkata:0:none' && ok "session environment (IST, rg, no auto-tmux)" || bad "session environment" "$OUT"
-  for t in claude node npm git ssh rg kubectl helm gh aws jq yq tmux python pip fzf fd rsync mosh curl wget nano; do chk "tool: $t" "T 'command -v $t' | grep -q /"; done
+  for t in claude node npm git ssh rg kubectl helm gh aws ngrok vercel jq yq tmux python pip fzf fd rsync mosh curl wget nano; do chk "tool: $t" "T 'command -v $t' | grep -q /"; done
   chk "claude runs (Node, native)"  "T 'claude --version' | grep -q 'Claude Code'"
   chk "node runs"     "T 'node -v' | grep -q ^v"
   chk "git runs"      "T 'git --version' | grep -q git"
@@ -52,6 +52,9 @@ if "$ADB" shell run-as $PKG test -f $P/home/.terminal/.ready 2>/dev/null; then
   chk "helm runs"     "T 'helm version --short' | grep -q v"
   chk "aws runs"      "T 'aws --version' | grep -q aws-cli"
   chk "gh runs"       "T 'gh --version' | grep -q gh"
+  chk "ngrok runs"    "T 'ngrok version' | grep -q ngrok"
+  chk "ngrok can resolve DNS and reach its servers (diagnose, no tunnel opened)" "T 'timeout 60 ngrok diagnose 2>&1' | grep -A3 'Ngrok Connectivity' | grep -q OK"
+  chk "vercel runs"   "T 'vercel --version' | grep -q Vercel"
   chk "npm can install a package" "T 'cd \$TMPDIR && rm -rf npmt && mkdir npmt && cd npmt && npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund left-pad >/dev/null 2>&1; test -d node_modules/left-pad && echo NPMOK; rm -rf \$TMPDIR/npmt' | grep -q NPMOK"
   chk "terminal-add installs a package" "T 'terminal-add tree >/dev/null 2>&1; tree --version' | grep -qi tree"
   chk "internet + DNS" "T 'for i in 1 2 3 4 5 6; do curl -sI -m 15 https://registry.npmjs.org | head -1 | grep -q 200 && echo NET200 && break; sleep 2; done' | grep -q NET200"
