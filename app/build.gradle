@@ -53,7 +53,7 @@ android {
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class
 
         manifestPlaceholders.TERMUX_PACKAGE_NAME = "app.clipod"
-        manifestPlaceholders.TERMUX_APP_NAME = "Cli"
+        manifestPlaceholders.TERMUX_APP_NAME = "Terminal"
         manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
         manifestPlaceholders.TERMUX_BOOT_APP_NAME = "Termux:Boot"
         manifestPlaceholders.TERMUX_FLOAT_APP_NAME = "Termux:Float"
@@ -67,7 +67,7 @@ android {
             }
         }
 
-        // Cli: 64-bit ARM phones only -> one small APK, one bootstrap zip
+        // Terminal: 64-bit ARM phones only -> one small APK, one bootstrap zip
         ndk {
             abiFilters 'arm64-v8a'
         }
@@ -211,8 +211,8 @@ clean {
     }
 }
 
-// Cli: bootstrap = upstream Termux bootstrap + proot, with the app path rewritten to our package name
-def ensureCliBootstrap() {
+// Terminal: bootstrap = upstream Termux bootstrap + proot, with the app path rewritten to our package name
+def ensureBootstrap() {
     def out = new File(projectDir, "src/main/cpp/bootstrap-aarch64.zip")
     if (out.exists()) return
     out.parentFile.mkdirs()
@@ -226,7 +226,7 @@ task downloadBootstraps() {
         def packageVariant = project.ext.packageVariant
         if (packageVariant == "apt-android-7") {
             def version = "2026.02.12-r1" + "%2B" + "apt.android-7"
-            ensureCliBootstrap()
+            ensureBootstrap()
         } else if (packageVariant == "apt-android-5") {
             def version = "2022.04.28-r6" + "+" + packageVariant
             downloadBootstrap("aarch64", "913609d439415c828c5640be1b0561467e539cb1c7080662decaaca2fb4820e7", version)

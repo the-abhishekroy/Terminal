@@ -1,84 +1,78 @@
-# Cli
+<p align="center"><img src="art/cli-icon.png" width="120" alt="Terminal icon"></p>
 
-<p align="center"><img src="art/cli-icon.png" width="120" alt="Cli icon"></p>
+# Terminal
 
-**A pocket Linux terminal for Android, tuned for cloud / DevOps work.**
-Open the app and you are inside a tiny Alpine Linux with Claude Code, AWS CLI, kubectl, helm, git, ssh/mosh and tmux already installed, ready for your own configuration.
+**A fast, light Linux terminal for Android, ready for cloud and DevOps work.**
+Open the app, press Enter once, and in a couple of minutes you have Claude Code, AWS CLI, kubectl, helm, GitHub CLI, git, ssh and tmux, all running natively on the phone. There is no emulation layer, so it starts instantly and never freezes in the background.
 
-Cli is a fork of [Termux](https://github.com/termux/termux-app) (GPLv3) with a different first-run experience. Nothing is rooted, nothing is emulated beyond `proot`.
+Terminal is a fork of [Termux](https://github.com/termux/termux-app) (GPLv3) with its own name, first-run setup and package set.
 
 ## Why
 
-- One lightweight Linux (Alpine, about 3 MB base) instead of a heap of packages or multiple distros.
-- Claude Code installed **natively** (musl build), with an npm fallback.
-- Opens straight into a persistent `tmux` session, so a dropped connection or a locked screen doesn't lose your work.
-- Termux's default look and extra-keys row, with a Menlo-style monospace font (DejaVu Sans Mono).
+- **Native speed.** Everything runs directly on Android. A new shell opens in well under a second.
+- **Claude Code that works.** It runs on Node (JavaScript), about 50 MB, instead of a 337 MB binary that froze under emulation.
+- **Friendly first run.** A step-by-step screen with progress bars, plain-language errors and a "what to do next" list.
+- **Sessions are independent.** Every new session is its own shell, with no shared state.
+- **Light.** The app is about 90 MB. Everything else is downloaded on demand, so you only keep what you use.
 
-## What you get inside
+## What you get
 
 | Area | Tools |
 |---|---|
-| AI | `claude` (Claude Code, native) |
-| Cloud | `aws` (aws-cli v2), `kubectl`, `helm`, `gh`, `docker` + `docker compose` (client only) |
-| Access | `ssh`, `mosh`, `rsync` |
-| Dev | `git`, `node` + `npm`, `python3` + `pip`, `psql`, `nvim`, `ripgrep`, `fd`, `fzf`, `jq`, `yq`, `htop` |
-| On demand (`cli-add <tool>`) | `bun`, `vercel`, `supabase`, `eksctl`, `k9s`, `redis`, `terraform` |
+| AI | `claude` (Claude Code 2.1.112, on Node) |
+| Cloud | `aws` (AWS CLI v1), `kubectl`, `helm`, `gh`, `docker-compose` (via `terminal-add`) |
+| Access | `ssh`, `mosh`, `rsync`, `curl`, `wget` |
+| Dev | `git`, `node` + `npm`, `python` + `pip`, `psql` client, `jq`, `yq`, `ripgrep`, `fd`, `fzf`, `nano`, `tmux`, `htop` |
+| More | `terminal-add <tool>`: thousands of packages from the Termux repository (neovim, terraform, k9s, ...) |
 
-Handy aliases: `c` (claude), `cc` (claude --continue), `k` (kubectl), `dc` (docker compose), `g` (git).
+Handy aliases: `c` (claude), `cc` (claude --continue), `k` (kubectl), `g` (git), `gs`, `gl`, `kgp`.
 
 ## Install
 
-1. Download `Cli.apk` from the [Releases](../../releases) page.
-2. Allow installing from unknown sources. On Samsung phones, turn off **Auto Blocker** first (Settings → Security and privacy → Auto Blocker).
-3. Open **Cli**, connect to the internet, and follow the prompts. First run downloads Alpine and installs the tools (a few minutes).
+1. Download `Terminal.apk` from the [Releases](../../releases) page.
+2. Allow installing from unknown sources. On Samsung phones, turn off **Auto Blocker** first (Settings → Security and privacy → Auto Blocker). If Google Play Protect warns, choose **Install anyway**.
+3. Open **Terminal**, stay on Wi-Fi, and press Enter. The setup takes about 2 to 4 minutes and downloads about 400 MB, once.
 
-Requirements: Android 7+ on a 64-bit ARM phone (`arm64-v8a`). Tested target: Samsung Galaxy F14 5G, Android 15.
+Requirements: Android 7 or newer, 64-bit ARM phone (`arm64-v8a`). Tested on a Samsung Galaxy F14 5G with Android 15.
 
 ## First steps
 
 ```sh
 claude              # sign in with the link it prints
-aws sts get-caller-identity
-kubectl config get-contexts
+terminal doctor     # check that everything is installed
+terminal-add neovim # install anything else you need
 ```
 
+Your projects go in `~/work`. If an SD card is present, that folder is created on the card to keep phone storage free.
 
-## Storage and the SD card
-
-At first run Cli looks for an SD card and uses it automatically.
-
-- **SD card that Android lets programs run from (adoptable ext4/f2fs):** the whole Linux system is installed on the card.
-- **Normal FAT/exFAT SD card (all Samsung phones):** Android mounts it with no symlinks and no executables, so Linux itself can't run from it. The system (about 1.2 GB) stays internal, and **everything you create goes to the SD card**: `/root/work`, `~/.cache`, `~/.npm`, pip and apk caches.
-
-Keep `npm install`-style projects (they need symlinks) outside `/root/work`, or work on the Mac over ssh. The Termux base (about 80 MB) and the APK always stay internal.
-
-## Commands on the host side
+## Commands
 
 ```sh
-cli doctor    # storage, arch, which tools are present, Android tips
-cli setup     # (re)run the setup
-cli enter     # enter Alpine manually
-cli host      # stay in the bare host shell on startup (undo: rm ~/.cli-no-auto)
-cli reset     # delete the Alpine environment
+terminal setup      # install / repair everything
+terminal doctor     # health check
+terminal reset      # run the first-time setup again (your files stay)
+terminal-add <tool> # install more tools
 ```
+
+## About Claude Code's version
+
+Claude Code stopped shipping as plain JavaScript after version **2.1.112**. Newer releases are a 337 MB native binary that needs Linux compatibility layers, and those froze on Android. Terminal installs 2.1.112 (about 50 MB, runs on Node, no freezes). You can try a different version with `TERMINAL_CLAUDE_VERSION=<version> terminal setup`, but newer ones will not run natively on Android.
+
+## Limits
+
+- `ngrok`, `docker` (daemon) and `eksctl` are not in the Termux repository. For Docker, use the `docker-compose` / `docker-cli` client against a remote host.
+- AWS CLI is v1 (installed with pip). It supports everything a day-to-day workflow needs, including `aws eks get-token`.
+- A normal (FAT/exFAT) SD card cannot hold programs, only your files. That is an Android rule.
+- The APK is signed with the public Termux test key. That is fine for personal use, not for a store.
 
 ## Keeping sessions alive (Android 12+ / Samsung One UI)
 
-- Settings → Battery → Cli → **Unrestricted**.
-- Developer options → **Disable child process restrictions** (Android 14+ has this toggle built in; it stops Android killing background shells).
-- Keep the Cli notification, and use tmux (already automatic).
-
-## Known limitations
-
-- `wrangler`/`workerd` don't run on Alpine (they need glibc). Use them on the Mac.
-- Docker is client-only. There is no daemon on a phone.
-- Claude Code's native installer on Alpine under `proot` is best-effort; if it fails the setup falls back to `npm`, or run `cli-add claude`.
-- `proot` adds some overhead compared to a native shell.
-- The APK is signed with the public Termux debug test key. That is fine for personal use, not for publishing to a store.
+- Settings → Battery → Terminal → **Unrestricted**.
+- Developer options → **Disable child process restrictions**.
 
 ## Build from source
 
-Needs JDK 17, the Android SDK (platform 36, build-tools 35.0.0 and 36.0.0) and NDK 29.0.14206865.
+Needs JDK 17, the Android SDK (platform 36, build-tools 35.0.0 and 36.0.0), NDK 29.0.14206865, `python3` and `curl`.
 
 ```sh
 echo "sdk.dir=$ANDROID_HOME" > local.properties
@@ -86,17 +80,22 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 # app/build/outputs/apk/debug/termux-app_apt-android-7-debug_universal.apk
 ```
 
-The build runs `tools/make-bootstrap.py` (needs `python3` and `curl`) to create `app/src/main/cpp/bootstrap-aarch64.zip`. After changing it, delete `app/build` and `app/.cxx` so the native library is rebuilt.
+The package id is `app.clipod`. `tools/make-bootstrap.py` builds the base system at build time: the upstream Termux bootstrap plus Node, git, ssh and ripgrep, with the hardcoded app path rewritten to `/data/data/app.clipod` (same length, so binaries stay valid). `terminal-add` applies the same rewrite on the phone to every package it installs. After changing the bootstrap, delete `app/build` and `app/.cxx` so the native library is rebuilt.
 
 Where the changes live:
 
-- `app/src/main/assets/cli/`: launcher (`bin/cli`), login hook (`profile.d/cli-boot.sh`), the Alpine setup and helper scripts (`alpine/`), and the Termux theme/properties.
-- `app/src/main/java/com/termux/app/TermuxInstaller.java`: copies those assets into place and lists SD card paths.
-- `app/build.gradle`: arm64-only build, package id `app.clipod`, builds the patched bootstrap.
-- `TermuxConstants.java` + `strings.xml`: app name and package id.
+- `app/src/main/assets/terminal/`: `bin/terminal` (setup UI, doctor), `bin/terminal-add` (package installer), `profile.d/terminal-boot.sh`, `terminal.bashrc` (prompt, aliases), font and tmux config.
+- `app/src/main/java/com/termux/app/TermuxInstaller.java`: installs those files and lists SD card paths.
+- `app/build.gradle`: arm64-only build, package id, bootstrap generation.
 
-The package id is `app.clipod`. `tools/make-bootstrap.py` builds the bootstrap at build time: the upstream Termux bootstrap plus proot, with the hardcoded app path rewritten to `/data/data/app.clipod` (same length, so binaries stay valid). Don't use `pkg`/`apt` on the host; everything you need lives in Alpine (`apk add`).
+## Tests
+
+```sh
+tools/test-app.sh path/to/Terminal.apk   # static + APK + on-device checks (needs adb and a USB-debugging phone)
+```
+
+The suite checks syntax, APK contents, every tool, internet, file operations, `npm`, `terminal-add`, upgrade from the old layout, two concurrent sessions, 12 parallel processes with no deadlock, `claude`, five force-stop and relaunch cycles, and memory use. It does not tap the screen.
 
 ## License
 
-GPLv3, inherited from Termux. See [LICENSE.md](LICENSE.md). Termux is a project of the Termux developers; Cli is not affiliated with it.
+GPLv3, inherited from Termux. See [LICENSE.md](LICENSE.md). Termux is a project of the Termux developers; Terminal is not affiliated with it.

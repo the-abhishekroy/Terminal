@@ -210,7 +210,13 @@ final class TermuxInstaller {
                     if (symlinks.isEmpty())
                         throw new RuntimeException("No SYMLINKS.txt encountered");
                     for (Pair<String, String> symlink : symlinks) {
-                        Os.symlink(symlink.first, symlink.second);
+                        try {
+                            Os.symlink(symlink.first, symlink.second);
+                        } catch (android.system.ErrnoException e) {
+                            // Terminal: an already-existing name is harmless (same file provided twice); never abort the install for it
+                            if (e.errno != android.system.OsConstants.EEXIST) throw e;
+                            Logger.logWarn(LOG_TAG, "symlink exists, skipped: " + symlink.second);
+                        }
                     }
 
                     Logger.logInfo(LOG_TAG, "Moving termux prefix staging to prefix directory.");
@@ -245,23 +251,35 @@ final class TermuxInstaller {
     }
 
     /**
-     * Cli: install the bundled launcher/config files (assets/cli) into the prefix.
+     * Terminal: install the bundled launcher/config files (assets/terminal) into the prefix.
      * Scripts are refreshed on every start; user config in ~/.termux is never overwritten.
      */
     static void installCliAssets(Context context) {
         try {
             android.content.res.AssetManager am = context.getAssets();
-            copyAssetTree(am, "cli/alpine", new File(TERMUX_PREFIX_DIR_PATH + "/share/cli/alpine"), true);
-            copyAsset(am, "cli/bin/cli", new File(TERMUX_PREFIX_DIR_PATH + "/bin/cli"), true, true);
-            copyAsset(am, "cli/profile.d/cli-boot.sh", new File(TERMUX_PREFIX_DIR_PATH + "/etc/profile.d/cli-boot.sh"), true, false);
+            // remove files from the pre-rename layout so only one launcher runs
+            new File(TERMUX_PREFIX_DIR_PATH + "/bin/cli").delete();
+            new File(TERMUX_PREFIX_DIR_PATH + "/etc/profile.d/cli-boot.sh").delete();
+            deleteTree(new File(TERMUX_PREFIX_DIR_PATH + "/share/cli"));
+            deleteTree(new File(TERMUX_PREFIX_DIR_PATH + "/share/terminal"));
+            copyAsset(am, "terminal/bin/terminal", new File(TERMUX_PREFIX_DIR_PATH + "/bin/terminal"), true, true);
+            copyAsset(am, "terminal/bin/terminal-add", new File(TERMUX_PREFIX_DIR_PATH + "/bin/terminal-add"), true, true);
+            copyAsset(am, "terminal/profile.d/terminal-boot.sh", new File(TERMUX_PREFIX_DIR_PATH + "/etc/profile.d/terminal-boot.sh"), true, false);
+            copyAsset(am, "terminal/terminal.bashrc", new File(TERMUX_PREFIX_DIR_PATH + "/etc/terminal.bashrc"), true, false);
             writeSdCandidates(context);
             File dotTermux = new File(TermuxConstants.TERMUX_DATA_HOME_DIR_PATH);
-            for (String name : new String[]{"font.ttf"}) {
-                copyAsset(am, "cli/termux/" + name, new File(dotTermux, name), false, false);
-            }
+            copyAsset(am, "terminal/termux/font.ttf", new File(dotTermux, "font.ttf"), false, false);
+            copyAsset(am, "terminal/termux/tmux.conf", new File(TermuxConstants.TERMUX_HOME_DIR_PATH + "/.tmux.conf"), false, false);
         } catch (Exception e) {
-            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to install Cli assets", e);
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to install Terminal assets", e);
         }
+    }
+
+    private static void deleteTree(File f) {
+        if (f == null || !f.exists()) return;
+        File[] kids = f.listFiles();
+        if (kids != null) for (File k : kids) deleteTree(k);
+        f.delete();
     }
 
     /** Lists removable-storage (SD card) app dirs, one per line, so `cli setup` can offer them. No permission needed. */
@@ -277,7 +295,7 @@ final class TermuxInstaller {
                     } catch (IllegalArgumentException ignored) { }
                 }
             }
-            File out = new File(TermuxConstants.TERMUX_HOME_DIR_PATH + "/.cli/sd-candidates");
+            File out = new File(TermuxConstants.TERMUX_HOME_DIR_PATH + "/.terminal/sd-candidates");
             File parent = out.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
             try (FileOutputStream fos = new FileOutputStream(out)) { fos.write(sb.toString().getBytes()); }

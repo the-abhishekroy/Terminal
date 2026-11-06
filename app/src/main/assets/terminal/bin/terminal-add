@@ -1,0 +1,74 @@
+#!/data/data/app.clipod/files/usr/bin/sh
+# terminal-add: install extra tools from the Termux package repository (patched to run in this app).
+#   terminal-add kubectl helm gh        install tools (and what they need)
+#   terminal-add --list                 show what is installed through this tool
+# Internal: --progress prints machine-readable "@@BAR done total name" lines (used by the setup screen).
+PREFIX="${PREFIX:-/data/data/app.clipod/files/usr}"
+HOME="${HOME:-/data/data/app.clipod/files/home}"
+OLD=/data/data/com.termux; NEW=/data/data/app.clipod
+REPO="${TERMINAL_REPO:-https://packages-cf.termux.dev/apt/termux-main}"
+ST="$PREFIX/var/lib/terminal-add"; IDX="$ST/Packages"; CACHE="$HOME/.terminal/debs"; WORK="$HOME/.terminal/tmp/add"
+LOGF="$HOME/.terminal/add.log"
+mkdir -p "$ST" "$CACHE" "$HOME/.terminal/tmp"
+PROGRESS=0; [ "$1" = "--progress" ] && { PROGRESS=1; shift; }
+say() { [ $PROGRESS -eq 1 ] || printf '%s\n' "$*"; }
+
+[ "$1" = "--list" ] && { grep -h '^Package:' "$ST/added" 2>/dev/null | cut -d' ' -f2; exit 0; }
+[ $# -gt 0 ] || { echo "usage: terminal-add <tool> [tool...]   (examples: kubectl helm gh awscli jq tmux neovim)"; exit 1; }
+
+refresh_index() {
+    if [ -s "$IDX" ] && [ -z "$(find "$IDX" -mmin +1440 2>/dev/null)" ]; then return 0; fi
+    curl -fsSL --max-time 90 "$REPO/dists/stable/main/binary-aarch64/Packages" -o "$IDX.tmp" 2>>"$LOGF" && mv "$IDX.tmp" "$IDX"
+}
+refresh_index || { echo "terminal-add: cannot download the package list (internet?)" >&2; exit 2; }
+
+# dependency order (deps first), skipping what is already installed. Output: name|version|file|sha256
+PLAN=$(awk -v roots="$*" -v status="$PREFIX/var/lib/dpkg/status" '
+  function trim(s){gsub(/^[ \t]+|[ \t]+$/,"",s);return s}
+  function visit(n,   i,deps,nd,d){
+     if (n in done || n in have || !(n in file)) return; done[n]=1
+     nd=split(dep[n],deps,",")
+     for(i=1;i<=nd;i++){ d=deps[i]; sub(/\|.*/,"",d); sub(/\(.*/,"",d); d=trim(d); if(d!="") visit(d) }
+     print n "|" ver[n] "|" file[n] "|" sha[n]
+  }
+  BEGIN{RS="";FS="\n"}
+  FILENAME==status { for(i=1;i<=NF;i++) if($i ~ /^Package: /){ have[substr($i,10)]=1 } next }
+  { n="";for(i=1;i<=NF;i++){
+      if($i ~ /^Package: /)n=substr($i,10)
+      else if($i ~ /^Depends: /)d=substr($i,10)
+      else if($i ~ /^Version: /)v=substr($i,10)
+      else if($i ~ /^Filename: /)f=substr($i,11)
+      else if($i ~ /^SHA256: /)s=substr($i,9) }
+    if(n!=""){dep[n]=d;ver[n]=v;file[n]=f;sha[n]=s} d="";v="";f="";s="" }
+  END{ if("nodejs-lts" in have) have["nodejs"]=1
+       m=split(roots,r," "); for(i=1;i<=m;i++){ if(!(r[i] in file)) print "UNKNOWN|" r[i]; else visit(r[i]) } }
+' "$PREFIX/var/lib/dpkg/status" "$IDX")
+
+UNK=$(echo "$PLAN" | grep '^UNKNOWN|' | cut -d'|' -f2 | tr '\n' ' ')
+[ -n "$UNK" ] && { echo "terminal-add: not available: $UNK" >&2; }
+PLAN=$(echo "$PLAN" | grep -v '^UNKNOWN|' | grep .)
+[ -n "$PLAN" ] || { say "Nothing to install (already present)."; [ -n "$UNK" ] && exit 3; exit 0; }
+TOTAL=$(echo "$PLAN" | wc -l | tr -d ' '); N=0
+say "Installing $TOTAL package(s)..."
+
+echo "$PLAN" | while IFS='|' read -r name ver file sha; do
+    N=$((N+1))
+    [ $PROGRESS -eq 1 ] && echo "@@BAR $((N-1)) $TOTAL $name" || printf '  [%s/%s] %s\n' "$N" "$TOTAL" "$name"
+    deb="$CACHE/$(basename "$file")"
+    if [ ! -s "$deb" ]; then curl -fsSL --retry 3 --max-time 600 "$REPO/$file" -o "$deb.part" 2>>"$LOGF" && mv "$deb.part" "$deb" || { echo "terminal-add: download failed: $name" >&2; exit 4; }; fi
+    [ "$(sha256sum "$deb" | cut -d' ' -f1)" = "$sha" ] || { echo "terminal-add: checksum mismatch: $name" >&2; rm -f "$deb"; exit 5; }
+    rm -rf "$WORK"; mkdir -p "$WORK"
+    dpkg-deb -x "$deb" "$WORK" 2>>"$LOGF" || { echo "terminal-add: cannot unpack $name" >&2; exit 6; }
+    SRC="$WORK$OLD/files/usr"
+    if [ -d "$SRC" ]; then
+        grep -rlF --binary-files=binary "$OLD" "$WORK" 2>/dev/null | while IFS= read -r f; do LC_ALL=C sed -i "s|$OLD|$NEW|g" "$f"; done
+        find "$SRC" -type l 2>/dev/null | while IFS= read -r l; do t=$(readlink "$l"); case "$t" in *"$OLD"*) ln -sfn "$(printf '%s' "$t" | sed "s|$OLD|$NEW|g")" "$l";; esac; done
+        cp -a "$SRC"/. "$PREFIX"/ 2>>"$LOGF" || { echo "terminal-add: cannot install $name" >&2; exit 7; }
+    fi
+    printf 'Package: %s\nStatus: install ok installed\nArchitecture: aarch64\nVersion: %s\nDescription: installed by terminal-add\n\n' "$name" "$ver" | tee -a "$ST/added" >> "$PREFIX/var/lib/dpkg/status"
+    rm -rf "$WORK"; rm -f "$deb"
+done
+rc=$?
+[ $PROGRESS -eq 1 ] && echo "@@BAR $TOTAL $TOTAL done"
+[ $rc -eq 0 ] && say "Done."
+exit $rc

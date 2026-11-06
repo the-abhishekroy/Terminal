@@ -1,0 +1,173 @@
+#!/data/data/app.clipod/files/usr/bin/sh
+# Terminal launcher: first-run setup, health check, reset. Everything runs natively (no emulation layer).
+PREFIX="${PREFIX:-/data/data/app.clipod/files/usr}"
+HOME="${HOME:-/data/data/app.clipod/files/home}"
+STATE="$HOME/.terminal"; LOG="$STATE/setup.log"; READY="$STATE/.ready"
+CLAUDE_VERSION="${TERMINAL_CLAUDE_VERSION:-2.1.112}"   # last Claude Code release that ships as plain JavaScript (runs on Node, no heavy native binary)
+TOOLS="kubectl helm gh jq yq tmux fzf fd rsync htop mosh nano wget bash-completion python python-pip libpq"
+mkdir -p "$STATE"
+
+# ---------------------------------------------------------------- friendly UI
+C0=$(printf '\033[0m'); BD=$(printf '\033[1m'); DM=$(printf '\033[2m')
+CY=$(printf '\033[1;36m'); GR=$(printf '\033[1;32m'); RD=$(printf '\033[1;31m'); YL=$(printf '\033[1;33m'); MG=$(printf '\033[1;35m')
+TOTAL=5
+say() { printf '%s[terminal]%s %s\n' "$CY" "$C0" "$*"; }
+die() { printf '%s[terminal]%s %s\n' "$RD" "$C0" "$*" >&2; exit 1; }
+banner() {
+    printf '\033[2J\033[H%s' "$CY"
+    cat <<'ART'
+
+  ▀█▀ █▀▀ █▀█ █▀▄▀█ █ █▄ █ ▄▀█ █
+   █  ██▄ █▀▄ █ ▀ █ █ █ ▀█ █▀█ █▄▄
+ART
+    printf '%s   your pocket Linux terminal%s\n\n' "$DM" "$C0"
+}
+step()  { printf '\n%s Step %s of %s%s  %s%s%s\n' "$MG" "$1" "$TOTAL" "$C0" "$BD" "$2" "$C0"; }
+ok()    { printf '   %s✔%s %s\n' "$GR" "$C0" "$*"; }
+info()  { printf '   %s•%s %s\n' "$CY" "$C0" "$*"; }
+warn()  { printf '   %s!%s %s\n' "$YL" "$C0" "$*"; }
+bad()   { printf '   %s✘%s %s\n' "$RD" "$C0" "$*"; }
+bar() { # bar <done> <total> <label>
+    d=$1; t=$2; [ "$t" -gt 0 ] 2>/dev/null || t=1; [ "$d" -gt "$t" ] && d=$t
+    w=22; f=$((d*w/t)); p=$((d*100/t)); b=""; n=0
+    while [ $n -lt $w ]; do if [ $n -lt $f ]; then b="$b█"; else b="$b·"; fi; n=$((n+1)); done
+    printf '\r\033[K   %s%s%s %3d%%  %s' "$CY" "$b" "$C0" "$p" "$3"
+}
+spin() { # spin <pid> <label>
+    i=0
+    while kill -0 "$1" 2>/dev/null; do
+        case $((i%4)) in 0) c='|';; 1) c='/';; 2) c='-';; *) c='\';; esac
+        printf '\r\033[K   %s%s%s %s' "$CY" "$c" "$C0" "$2"; i=$((i+1)); sleep 0.2
+    done
+    printf '\r\033[K'
+}
+retry_or_quit() { # retry_or_quit <problem> <what to do>
+    echo; bad "$1"; info "$2"; info "(Technical details: $LOG)"
+    printf '\n   Press %sEnter%s to try again, or type %sq%s and Enter to stop: ' "$BD" "$C0" "$BD" "$C0"
+    read a; [ "$a" = q ] && { echo; say "Stopped. Open Terminal again any time to continue."; exit 1; }
+    return 0
+}
+run_step() { # run_step <fn> <problem> <what to do>
+    while :; do "$1"; [ $? -eq 0 ] && return 0; retry_or_quit "$2" "$3"; done
+}
+welcome() {
+    banner
+    printf '   %sWelcome!%s Terminal is getting your phone ready.\n\n' "$BD" "$C0"
+    echo "   It will set up, all by itself:"
+    echo "     • Claude Code"
+    echo "     • AWS CLI, kubectl, helm, GitHub CLI"
+    echo "     • git, ssh, tmux and more"
+    echo
+    printf '   %sBefore you start%s\n' "$BD" "$C0"
+    echo "     • Stay on Wi-Fi (about 400 MB is downloaded)"
+    echo "     • Keep this screen open - it takes 3 to 6 minutes"
+    echo "     • You only do this once"
+    printf '\n   Press %sEnter%s to begin... ' "$BD" "$C0"; read a
+}
+
+# --------------------------------------------------------------------- steps
+st_prepare() {
+    curl -fsI --max-time 15 https://registry.npmjs.org >/dev/null 2>&1 && return 0
+    return 1
+}
+st_claude() {
+    claude --version >/dev/null 2>&1 && return 0
+    npm install -g --no-audit --no-fund --loglevel=error "@anthropic-ai/claude-code@$CLAUDE_VERSION" >>"$LOG" 2>&1 &
+    spin $! "Downloading Claude Code (about 50 MB)..."; wait $!
+    claude --version >/dev/null 2>&1
+}
+st_tools() {
+    terminal-add --progress $TOOLS 2>>"$LOG" | while IFS= read -r l; do
+        case "$l" in "@@BAR "*) set -- $l; bar "$2" "$3" "$4";; esac
+    done
+    echo
+    for t in kubectl helm gh jq tmux python pip; do command -v "$t" >/dev/null 2>&1 || return 1; done
+}
+st_aws() {
+    aws --version >/dev/null 2>&1 && return 0
+    pip install --no-input -q awscli >>"$LOG" 2>&1 &
+    spin $! "Installing AWS CLI..."; wait $!
+    aws --version >/dev/null 2>&1
+}
+migrate_old() { # earlier versions kept everything in a separate Linux system; bring your settings over, then free the space
+    OLDR="${STATE:?}/alpine/root"; [ -d "$OLDR" ] || return 0
+    for f in .aws .kube .ssh .claude .claude.json .gitconfig .config .local/share/com.vercel.cli; do
+        [ -e "$OLDR/$f" ] || continue
+        mkdir -p "$(dirname "$HOME/$f")"; cp -an "$OLDR/$f" "$HOME/$(dirname "$f")/" 2>/dev/null
+    done
+    [ -f "$HOME/.ssh/config" ] && sed -i "s#/root/.ssh#$HOME/.ssh#g" "$HOME/.ssh/config"
+    { grep -E '^alias ' "$OLDR/.bashrc" 2>/dev/null; grep -E '^export KUBECONFIG' "$OLDR/.bashrc" 2>/dev/null | sed "s#/root/#$HOME/#"; } > "$STATE/user.sh"
+    chmod -R u+w "${STATE:?}/alpine" 2>/dev/null
+    rm -rf "${STATE:?}/alpine" "${STATE:?}/proc" 2>/dev/null
+    return 0
+}
+link_work_folder() { # ~/work lives on the SD card when one is present (keeps phone storage free)
+    [ -e "$HOME/work" ] && return 0
+    P=$(sed -n 1p "$STATE/sd-candidates" 2>/dev/null)
+    if [ -n "$P" ] && [ -d "$P" ] && { [ -d "$P/work" ] || mkdir "$P/work" 2>/dev/null; }; then
+        ln -s "$P/work" "$HOME/work" && { ok "Your ~/work folder is on the SD card"; return 0; }
+    fi
+    mkdir -p "$HOME/work"; ok "Your ~/work folder is ready"
+}
+
+cmd_setup() {
+    : >> "$LOG"
+    welcome
+    banner
+    step 1 "Getting ready"
+    run_step st_prepare "Terminal can't reach the internet." "Turn on Wi-Fi (or mobile data) and make sure it works."
+    ok "Internet connection works"
+
+    step 2 "Installing Claude Code"
+    run_step st_claude "Claude Code could not be installed." "Usually a connection hiccup. It will try again."
+    ok "Claude Code is ready ($(claude --version 2>/dev/null | head -1))"
+
+    step 3 "Installing your tools (kubectl, helm, git, ssh...)"
+    info "This is the longest part - about 2 to 4 minutes."
+    run_step st_tools "Some tools could not be installed." "It will continue from where it stopped."
+    ok "Tools installed"
+
+    step 4 "Installing AWS CLI"
+    run_step st_aws "AWS CLI could not be installed." "Usually a connection hiccup. It will try again."
+    ok "AWS CLI is ready"
+
+    step 5 "Finishing up"
+    migrate_old && [ -f "$STATE/user.sh" ] && ok "Moved your settings from the old version"
+    link_work_folder
+    touch "$READY"
+    printf '\n%s ✔ All done!%s Everything is installed.\n\n' "$GR" "$C0"
+    printf '   %sWhat to do next%s\n' "$BD" "$C0"
+    printf '     %s1.%s Type  %sclaude%s  and sign in with your account\n' "$CY" "$C0" "$BD" "$C0"
+    printf '     %s2.%s Add more tools any time:  %sterminal-add <name>%s\n' "$CY" "$C0" "$BD" "$C0"
+    printf '\n   Press %sEnter%s to start... ' "$BD" "$C0"; read a
+}
+
+cmd_doctor() {
+    printf '\n  %sTerminal health check%s\n\n' "$BD" "$C0"
+    for t in claude node npm git ssh kubectl helm gh aws jq yq tmux python rg fzf fd rsync mosh curl; do
+        v=$("$t" --version 2>/dev/null | head -1 | cut -c1-48)
+        if command -v "$t" >/dev/null 2>&1; then printf '  %s✔%s %-9s %s\n' "$GR" "$C0" "$t" "$v"; else printf '  %s✘%s %-9s missing  (fix: terminal-add %s)\n' "$RD" "$C0" "$t" "$t"; fi
+    done
+    echo
+    echo "  Free space on phone: $(df -h "$HOME" 2>/dev/null | awk 'NR==2{print $4}')   Work folder: $(readlink "$HOME/work" 2>/dev/null || echo "$HOME/work")"
+    echo
+}
+
+cmd_reset() {
+    printf 'Run the first-time setup again (your files stay)? [y/N] '; read a
+    [ "$a" = y ] || exit 0
+    rm -f "$READY"; say "Done. Open a new session to run the setup."
+}
+
+case "$1" in
+    setup)  cmd_setup ;;
+    doctor) cmd_doctor ;;
+    reset)  cmd_reset ;;
+    __migrate) migrate_old ;;   # internal (used by tests)
+    *)      printf '\n  %sTerminal%s commands\n\n' "$BD" "$C0"
+            echo "    terminal setup       install / repair everything"
+            echo "    terminal doctor      check that everything works"
+            echo "    terminal reset       run the first-time setup again"
+            echo "    terminal-add <tool>  install more tools (kubectl, neovim, terraform...)"
+            echo; echo "  Claude Code:  claude"; echo ;;
+esac
