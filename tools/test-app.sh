@@ -63,7 +63,8 @@ if "$ADB" shell run-as $PKG test -f $P/home/.terminal/.ready 2>/dev/null; then
   chk "terminal doctor shows no missing tool" "! T 'terminal doctor' | grep -q missing"
   chk "no proot / emulation processes anywhere" "! $ADB shell ps -A -o NAME | grep -qx proot"
   # migration from the old Alpine layout (settings copied, big folder removed)
-  M=$(T 'mkdir -p $HOME/.terminal/alpine/root/.aws && echo "[default]" > $HOME/.terminal/alpine/root/.aws/config && echo "alias zz=true" > $HOME/.terminal/alpine/root/.bashrc && terminal __migrate; test -f $HOME/.aws/config && test ! -d $HOME/.terminal/alpine && grep -q "alias zz" $HOME/.terminal/user.sh && echo MIGOK; rm -f $HOME/.terminal/user.sh')
+  # runs in a throw-away HOME so the user's real settings are never touched
+  M=$(T 'export HOME=$TMPDIR/migtest; rm -rf $HOME; mkdir -p $HOME/.terminal/alpine/root/.aws && echo "[default]" > $HOME/.terminal/alpine/root/.aws/config && echo "alias zz=true" > $HOME/.terminal/alpine/root/.bashrc && terminal __migrate; test -f $HOME/.aws/config && test ! -d $HOME/.terminal/alpine && grep -q "alias zz" $HOME/.terminal/user.sh && echo MIGOK; rm -rf $TMPDIR/migtest')
   echo "$M" | grep -q MIGOK && ok "upgrade from old Alpine layout: settings moved, space freed" || bad "migration" "$M"
   # concurrency: two sessions at once, 12 parallel node/git/gh runs, nothing may freeze
   ( T 'echo A:$$; sleep 3; echo A-done' > /tmp/sessA.$$ ) & ( T 'echo B:$$; sleep 3; echo B-done' > /tmp/sessB.$$ ) & wait
