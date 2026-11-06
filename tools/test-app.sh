@@ -54,7 +54,7 @@ if "$ADB" shell run-as $PKG test -f $P/home/.terminal/.ready 2>/dev/null; then
   chk "gh runs"       "T 'gh --version' | grep -q gh"
   chk "npm can install a package" "T 'cd \$TMPDIR && rm -rf npmt && mkdir npmt && cd npmt && npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund left-pad >/dev/null 2>&1; test -d node_modules/left-pad && echo NPMOK; rm -rf \$TMPDIR/npmt' | grep -q NPMOK"
   chk "terminal-add installs a package" "T 'terminal-add tree >/dev/null 2>&1; tree --version' | grep -qi tree"
-  chk "internet + DNS" "T 'for i in 1 2 3; do curl -sI -m 15 https://registry.npmjs.org | head -1 | grep -q 200 && echo NET200 && break; sleep 2; done' | grep -q NET200"
+  chk "internet + DNS" "T 'for i in 1 2 3 4 5 6; do curl -sI -m 15 https://registry.npmjs.org | head -1 | grep -q 200 && echo NET200 && break; sleep 2; done' | grep -q NET200"
   chk "file ops: write, symlink, exec in home" "T 'cd \$HOME && echo hi > t.txt && ln -sf t.txt l && printf \"#!/bin/sh\necho EXEC\n\" > x.sh && chmod +x x.sh && ./x.sh && cat l; rm -f t.txt l x.sh' | grep -q EXEC"
   chk "~/work exists and is writable" "T 'touch \$HOME/work/.t && rm \$HOME/work/.t && echo W' | grep -q W"
   chk "terminal doctor shows no missing tool" "! T 'terminal doctor' | grep -q missing"
