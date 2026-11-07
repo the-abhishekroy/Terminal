@@ -93,8 +93,6 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
                 drawerLayout.closeDrawer(Gravity.LEFT);
             else
                 drawerLayout.openDrawer(Gravity.LEFT);
-        } else if ("MIC".equals(key)) {
-            mActivity.startVoiceInput();
         } else if ("PASTE".equals(key)) {
             if(mTermuxTerminalSessionActivityClient != null)
                 mTermuxTerminalSessionActivityClient.onPasteTextFromClipboard(null);

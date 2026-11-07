@@ -13,7 +13,6 @@ Terminal is a fork of [Termux](https://github.com/termux/termux-app) (GPLv3) wit
 - **Claude Code that works.** It runs on Node (JavaScript), about 50 MB, instead of a 337 MB binary that froze under emulation.
 - **Friendly first run.** A step-by-step screen with progress bars, plain-language errors and a "what to do next" list.
 - **Sessions are independent.** Every new session is its own shell, with no shared state.
-- **Voice input.** Tap the 🎤 key on the extra-keys row, speak, and the words are typed for you. You press Enter yourself.
 - **Light.** The app is about 90 MB. Everything else is downloaded on demand, so you only keep what you use.
 
 ## What you get

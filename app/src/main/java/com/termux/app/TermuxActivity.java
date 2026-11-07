@@ -350,8 +350,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         Logger.logDebug(LOG_TAG, "onDestroy");
 
-        if (mSpeech != null) { mSpeech.destroy(); mSpeech = null; }
-
         if (mIsInvalidState) return;
 
         if (mTermuxService != null) {
@@ -800,55 +798,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
-    private static final int REQUEST_VOICE_PERMISSION = 4711;
-    private android.speech.SpeechRecognizer mSpeech;
-
-    /** Mic key: listen with the phone's speech recognizer and type what was heard (Enter is left to the user). */
-    public void startVoiceInput() {
-        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQUEST_VOICE_PERMISSION);
-            return;
-        }
-        if (!android.speech.SpeechRecognizer.isRecognitionAvailable(this)) {
-            Toast.makeText(this, "No speech recognizer on this phone. Use the microphone on your keyboard.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        try {
-            if (mSpeech == null) {
-                mSpeech = android.speech.SpeechRecognizer.createSpeechRecognizer(this);
-                mSpeech.setRecognitionListener(new android.speech.RecognitionListener() {
-                    @Override public void onReadyForSpeech(Bundle params) { Toast.makeText(TermuxActivity.this, "Listening...", Toast.LENGTH_SHORT).show(); }
-                    @Override public void onBeginningOfSpeech() {}
-                    @Override public void onRmsChanged(float rmsdB) {}
-                    @Override public void onBufferReceived(byte[] buffer) {}
-                    @Override public void onEndOfSpeech() {}
-                    @Override public void onPartialResults(Bundle partialResults) {}
-                    @Override public void onEvent(int eventType, Bundle params) {}
-                    @Override public void onError(int error) {
-                        Toast.makeText(TermuxActivity.this, "Didn't catch that, tap the mic and try again", Toast.LENGTH_SHORT).show();
-                    }
-                    @Override public void onResults(Bundle results) {
-                        java.util.ArrayList<String> heard = results.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION);
-                        if (heard != null && !heard.isEmpty() && mTerminalView != null && mTerminalView.mEmulator != null)
-                            mTerminalView.mEmulator.paste(heard.get(0));
-                    }
-                });
-            }
-            Intent intent = new Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            mSpeech.startListening(intent);
-        } catch (Exception e) {
-            Toast.makeText(this, "Voice input failed. Use the microphone on your keyboard.", Toast.LENGTH_LONG).show();
-        }
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_VOICE_PERMISSION) {
-            if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) startVoiceInput();
-            return;
-        }
         Logger.logVerbose(LOG_TAG, "onRequestPermissionsResult: requestCode: " + requestCode + ", permissions: "  + Arrays.toString(permissions) + ", grantResults: "  + Arrays.toString(grantResults));
         if (requestCode == PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION) {
             requestStoragePermission(true);
