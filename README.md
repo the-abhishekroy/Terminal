@@ -45,6 +45,10 @@ terminal-add neovim # install anything else you need
 
 Your projects go in `~/work`. If an SD card is present, that folder is created on the card to keep phone storage free.
 
+## Connect your computer over ssh (optional)
+
+Terminal starts an ssh server on port 8022 as soon as `~/.ssh/authorized_keys` has a key in it (keys only, no passwords). To reach the phone from anywhere, not just the same Wi-Fi, install [Tailscale](https://tailscale.com) on both devices and log in with the same account. Then add your computer's public key to the phone's `~/.ssh/authorized_keys` and run `ssh -p 8022 <phone-user>@<tailscale-address>` (`whoami` shows the user). Without a key, no ssh server runs.
+
 ## Commands
 
 ```sh
