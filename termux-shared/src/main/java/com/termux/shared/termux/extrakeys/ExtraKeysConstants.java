@@ -91,6 +91,7 @@ public class ExtraKeysConstants {
             put("BKSP", "⌫"); // U+232B ⌫ ERASE TO THE LEFT sometimes seen and easy to understand
             put("DEL", "⌦"); // U+2326 ⌦ ERASE TO THE RIGHT not well known but easy to understand
             put("DRAWER", "☰"); // U+2630 ☰ TRIGRAM FOR HEAVEN not well known but easy to understand
+            put("MIC", "\uD83C\uDFA4"); // U+1F3A4 microphone: voice input
             put("KEYBOARD", "⌨"); // U+2328 ⌨ KEYBOARD not well known but easy to understand
             put("PASTE", "⎘"); // U+2398
             put("SCROLL", "⇳"); // U+21F3
