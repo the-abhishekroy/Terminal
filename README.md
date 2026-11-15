@@ -1,8 +1,19 @@
 <p align="center"><img src="art/cli-icon.png" width="120" alt="Terminal icon"></p>
 
-# Terminal
+<h1 align="center">Terminal</h1>
 
-**A fast, light Linux terminal for Android, ready for cloud and DevOps work.**
+<p align="center"><b>A fast, light Linux terminal for Android, ready for cloud and DevOps work.</b></p>
+
+<p align="center">
+  <a href="../../releases/latest"><img alt="Download" src="https://img.shields.io/badge/Download-Terminal.apk-87D787?style=for-the-badge&labelColor=000000"></a>
+  <img alt="Android 7+" src="https://img.shields.io/badge/Android-7%2B%20(arm64)-87AFFF?style=for-the-badge&labelColor=000000">
+  <img alt="License GPLv3" src="https://img.shields.io/badge/License-GPLv3-8C8C8C?style=for-the-badge&labelColor=000000">
+</p>
+
+<p align="center">
+  <a href="#why">Why</a> · <a href="#what-you-get">What you get</a> · <a href="#install">Install</a> · <a href="#first-steps">First steps</a> · <a href="#connect-your-computer-over-ssh-optional">SSH</a> · <a href="#pair-it-with-your-mac-andromac">Andromac</a> · <a href="#limits">Limits</a>
+</p>
+
 Open the app, press Enter once, and in a couple of minutes you have Claude Code, AWS CLI, kubectl, helm, GitHub CLI, git, ssh and tmux, all running natively on the phone. There is no emulation layer, so it starts instantly and never freezes in the background.
 
 Terminal is a fork of [Termux](https://github.com/termux/termux-app) (GPLv3) with its own name, first-run setup and package set.
@@ -47,7 +58,20 @@ Your projects go in `~/work`. If an SD card is present, that folder is created o
 
 ## Connect your computer over ssh (optional)
 
-Terminal starts an ssh server on port 8022 as soon as `~/.ssh/authorized_keys` has a key in it (keys only, no passwords). To reach the phone from anywhere, not just the same Wi-Fi, install [Tailscale](https://tailscale.com) on both devices and log in with the same account. Then add your computer's public key to the phone's `~/.ssh/authorized_keys` and run `ssh -p 8022 <phone-user>@<tailscale-address>` (`whoami` shows the user). Without a key, no ssh server runs.
+Terminal starts an ssh server on port 8022 as soon as `~/.ssh/authorized_keys` has a key in it (keys only, no passwords). To reach the phone from anywhere, not just the same Wi-Fi, install [Tailscale](https://tailscale.com) on both devices and log in with the same account, or use [Andromac](https://github.com/the-abhishekroy/andromac), which has the private network built in and needs no extra app. Then add your computer's public key to the phone's `~/.ssh/authorized_keys` and run `ssh -p 8022 <phone-user>@<tailscale-address>` (`whoami` shows the user). Without a key, no ssh server runs.
+
+## Pair it with your Mac: Andromac
+
+Terminal is the phone half of a pair. **[Andromac](https://github.com/the-abhishekroy/andromac)** is the other half: a free, open-source app that links a Mac and an Android phone from anywhere (no cable, no shared Wi-Fi, no separate VPN app), and carries notifications, one-time codes, clipboard, screen view and control, and **terminal shortcuts**.
+
+With both installed:
+
+```sh
+ssh m5     # on the phone, in Terminal: opens a shell on your Mac
+ssh f14    # on the Mac: opens Terminal on your phone
+```
+
+Andromac builds the private connection for you, and Terminal's ssh server (port 8022, keys only) is what the Mac reaches. Setup steps are in Andromac's [Terminal shortcuts](https://github.com/the-abhishekroy/andromac#-features) section.
 
 ## Commands
 
